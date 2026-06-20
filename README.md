@@ -71,8 +71,8 @@ base-repo-structure/
 │   │   │
 │   │   ├── common/                         # Shared Utilities (Global app-level)
 │   │   │   ├── __init__.py
-│   │   │   ├── constants.py
-│   │   │   └── exceptions.py
+│   │   │   ├── constants.py                # App-wide constants
+│   │   │   └── exceptions.py              # Base exception hierarchy
 │   │   │
 │   │   ├── containers/                     # Dependency Injection Containers
 │   │   │   ├── __init__.py
@@ -167,9 +167,6 @@ base-repo-structure/
 │   │   │       ├── formatters.py
 │   │   │       └── state_helpers.py
 │   │   │
-│   │   └── tools/                          # Global Tools (if any exist at app level)
-│   │       └── __init__.py
-│   │
 │   └── __init__.py
 │
 ├── deploy/                                 # Deployment Scripts & Configs
@@ -310,8 +307,8 @@ base-repo-structure/
 │   │   │
 │   │   ├── common/                         # Shared Utilities (App-level)
 │   │   │   ├── __init__.py
-│   │   │   ├── constants.py
-│   │   │   └── exceptions.py
+│   │   │   ├── constants.py                # App-wide constants
+│   │   │   └── exceptions.py              # Base exception hierarchy
 │   │   │
 │   │   ├── containers/                     # Dependency Injection
 │   │   │   ├── __init__.py
@@ -417,9 +414,6 @@ base-repo-structure/
 │   │   │       ├── formatters.py           # <100 lines
 │   │   │       └── state_helpers.py        # <100 lines
 │   │   │
-│   │   └── tools/                          # Global Tools (if any at app level)
-│   │       └── __init__.py
-│   │
 │   └── __init__.py
 │
 ├── deploy/                                 # Deployment Scripts
