@@ -1,0 +1,25 @@
+[project]
+name = "base-repo-structure"
+version = "0.1.0"
+description = "Production-grade FastAPI boilerplate with Google ADK multi-agent architecture"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.38.0",
+    "google-adk>=1.19.0",
+    "mcp>=1.23.1",
+    "python-dotenv>=1.2.1",
+    "pydantic>=2.12.5",
+    "loguru>=0.7.3",
+    "dishka>=0.23.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[dependency-groups]
+dev = []
