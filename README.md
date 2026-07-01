@@ -82,13 +82,10 @@ base-repo-structure/
 │   │   │   │   ├── constants.py            # App-wide constants
 │   │   │   │   └── exceptions.py           # Base exception hierarchy
 │   │   │   │
-│   │   │   ├── containers/                 # dishka DI Containers
-│   │   │   │   ├── __init__.py
-│   │   │   │   └── app_container.py        # Main DI container
-│   │   │   │
 │   │   │   ├── core/                       # Infrastructure & Config
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── config.py               # Settings (Env vars, secrets)
+│   │   │   │   ├── container.py            # dishka DI container
 │   │   │   │   ├── database.py             # DB Connection setup
 │   │   │   │   └── logger.py               # Logging setup
 │   │   │   │
@@ -113,12 +110,9 @@ base-repo-structure/
 │   │   │   │       ├── __init__.py
 │   │   │   │       └── cache_repository.py
 │   │   │   │
-│   │   │   ├── schemas/                    # HTTP API Pydantic schemas (request/response)
-│   │   │   │   ├── __init__.py
-│   │   │   │   └── common.py
-│   │   │   │
 │   │   │   ├── services/                   # External API clients (shared across agents + features)
 │   │   │   │   ├── __init__.py
+│   │   │   │   ├── source_items.py         # Collector pipeline DTOs (SourceItemBase + subclasses)
 │   │   │   │   ├── service1/               # [Example] Replace with real service (adzuna, linkedin, etc.)
 │   │   │   │   │   ├── __init__.py
 │   │   │   │   │   ├── service.py
@@ -206,7 +200,7 @@ base-repo-structure/
 - **`src/app/features/`**: REST API business domains (auth, users, etc.) — feature-based layout. Each feature owns its router, service, repository, and schemas.
 - **`src/app/shared/`**: Reusable code (tools, callbacks, schemas, prompts) used by 2+ agents.
 - **`src/app/services/`**: External API clients — reusable across agents AND features.
-- **`src/app/schemas/`**: HTTP API-level Pydantic schemas (request/response). `shared/schemas/` = ADK tool input schemas. `models/` = SQLAlchemy ORM.
+- **No top-level `schemas/` folder** — schema location matches the boundary it serves (see Schema Rules below).
 - **`docker/`** and **`deploy/`**: Each agent has its own Dockerfile and deployment script.
 - **`tests/`**: Tests organized per module (shared, agents, services, features).
 - **`docs/`**: Architecture documentation, guides, and agent creation templates.
@@ -258,18 +252,17 @@ base-repo-structure/
 │   │   │   └── utils/
 │   │   │
 │   │   ├── services/                       # External API clients
+│   │   │   ├── source_items.py             # Collector pipeline DTOs
 │   │   │   ├── service1/
 │   │   │   └── service2/
 │   │   │
 │   │   ├── api/v1/routes/
-│   │   ├── common/
-│   │   ├── containers/                     # dishka DI
-│   │   ├── core/
+│   │   ├── common/                         # Cross-layer internal DTOs + exceptions
+│   │   ├── core/                           # config, logger, database, container (dishka)
 │   │   ├── metadata/plans/
 │   │   ├── middleware/
 │   │   ├── models/                         # SQLAlchemy ORM
-│   │   ├── repositories/db/ + redis/
-│   │   └── schemas/                        # HTTP API Pydantic schemas
+│   │   └── repositories/db/ + redis/
 │   │
 │   ├── tests/
 │   │   ├── agents/
@@ -373,18 +366,24 @@ This template uses a **hybrid structure** — two patterns coexist based on what
 - **Rule:** No cross-agent imports. ADK handles agent routing via `get_fast_api_app()`.
 - **Structure:** Top-level agents → use tools from `shared/tools/` → call services → call repositories.
 
-### 6. Dependency Injection (`src/app/containers/`)
+### 6. Dependency Injection (`src/app/core/container.py`)
 - Uses **dishka** for clean, type-safe DI wiring.
 - `FromDishka[ServiceType]` in route handlers — no manual instantiation.
 
-### Three Schema Types — Never Confuse
-| Location | Type | Purpose |
-|---|---|---|
-| `models/` | SQLAlchemy | Database table definitions |
-| `schemas/` | Pydantic | HTTP API request/response contracts |
-| `shared/schemas/` | Pydantic | ADK tool function input models |
+### Schema Rules — 4 Homes, 4 Jobs
 
-*Data flows: Schema (input) → Feature Service → Repository → Model (DB) → Repository → Schema (output)*
+**No top-level `schemas/` folder.** Schema location matches the boundary it serves:
+
+| Location | Boundary | Contains |
+|---|---|---|
+| `features/*/schemas.py` | HTTP in/out | Request/response DTOs only |
+| `agents/*/schemas.py` | Agent workflow | Graph deps, triage results, run results |
+| `services/source_items.py` | Collector pipeline | `SourceItemBase` + per-source subclasses |
+| `common/` | Cross-layer internal | Dedup markers, shared internal DTOs |
+| `shared/schemas/` | ADK tool inputs | Only when 2+ agents share tool input models |
+| `models/` | Database | SQLAlchemy ORM table definitions |
+
+*Data flows: Feature Schema (input) → Service → Repository → Model (DB) → Repository → Feature Schema (output)*
 
 ---
 
@@ -445,11 +444,11 @@ dependencies = [
     ```
 
 2.  **Develop:**
-    - Add a Schema in `schemas/`.
     - Add a Model in `models/`.
     - Create a Repository in `repositories/`.
     - Implement Business Logic in `services/`.
-    - Expose via Endpoint in `api/`.
+    - Add HTTP schemas in `features/*/schemas.py`.
+    - Expose via Endpoint in `features/*/router.py`.
 
 3.  **Test:**
     ```bash
