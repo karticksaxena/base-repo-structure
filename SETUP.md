@@ -138,7 +138,19 @@ known-first-party = ["src"]
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
+
+# --- Tests (pytest) ---
+[tool.pytest.ini_options]
+addopts = "--strict-markers"        # unregistered @pytest.mark.* fails the run
+testpaths = ["tests"]
+asyncio_mode = "auto"               # required by pytest-asyncio for async def tests
+markers = [
+    "unit: isolated tests, no DB/Redis dependency",
+    "integration: tests that hit a real DB/Redis instance",
+]
 ```
+
+Without `[tool.pytest.ini_options]`, `@pytest.mark.unit` / `@pytest.mark.integration` (used in the project's CLAUDE.md testing rules) raise "unknown marker" warnings, and async test functions need `asyncio_mode` set or they're silently skipped.
 
 ### 3. Baseline (existing codebases only)
 
@@ -472,7 +484,7 @@ Unused variable in the same `.ts` file often triggers `@typescript-eslint/no-unu
 
 Copy in this order:
 
-- [ ] **1.** Create `backend/pyproject.toml` with `[tool.basedpyright]` + `[tool.ruff]`
+- [ ] **1.** Create `backend/pyproject.toml` with `[tool.basedpyright]` + `[tool.ruff]` + `[tool.pytest.ini_options]`
 - [ ] **2.** `uv sync` — select `backend/.venv` interpreter
 - [ ] **3.** Create `frontend/eslint.config.mjs` + `lint` / `typecheck` scripts
 - [ ] **4.** Add `.vscode/settings.json` (monorepo paths)
