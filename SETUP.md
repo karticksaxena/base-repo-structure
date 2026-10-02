@@ -1,8 +1,8 @@
 # Dev Tooling Setup Guide
 
-Production-ready linting and type-checking for Python (Ruff + BasedPyright) and TypeScript/JavaScript (ESLint + TypeScript). Use this checklist when bootstrapping a new monorepo or single-package project.
+Production-ready linting and type-checking for Python (Ruff + BasedPyright) and TypeScript/JavaScript (ESLint + Prettier + TypeScript). Use this checklist when bootstrapping a new monorepo or single-package project.
 
-**Path:** `backend/docs/setup.md` (this repo). Point agents here for editor + CLI tooling setup.
+**Path:** `SETUP.md` (repo root). Point agents here for editor + CLI tooling setup.
 
 ---
 
@@ -13,7 +13,7 @@ When setting up or verifying dev tooling in a similar repo:
 1. **Follow the three-layer rule** — rules in config files; paths only in `.vscode/settings.json`; format-on-save in user settings.
 2. **Do not create** a root `pyrightconfig.json` if `[tool.basedpyright]` already exists in `pyproject.toml`.
 3. **Do not add** `runOn: folderOpen` auto tasks unless the user explicitly wants visible terminal processes on every reload.
-4. **Do not use** deprecated or wrong settings: `python.analysis.*`, `cursorpyright.*`, `ruff.lint.run`, `typescript.tsserver.experimental.enableProjectDiagnostics`.
+4. **Do not use** deprecated or wrong settings: `python.analysis.*`, `cursorpyright.*`, `ruff.lint.run`, `typescript.tsserver.experimental.enableProjectDiagnostics` (old name — use `js/ts.*` in user settings, see below).
 5. **Verify with CLI** before claiming done (commands in [Verify CLI](#4-verify-cli) and [Frontend verify](#4-verify-cli-1)).
 6. **Verify editor** with a temporary smoke test (see [Verify editor Problems panel](#verify-editor-problems-panel)), then remove it.
 
@@ -23,7 +23,7 @@ When setting up or verifying dev tooling in a similar repo:
 |------|---------------------------------------------------|--------------------------------------|
 | **BasedPyright** | **YES** — `basedpyright.analysis.diagnosticMode: "workspace"` | **YES** — same via LSP + `uv run basedpyright` |
 | **Ruff** | **NO** — extension lints **open/edited files only** ([ruff-vscode #145](https://github.com/astral-sh/ruff-vscode/issues/145)) | **YES** — `uv run ruff check` or manual VS Code task |
-| **TypeScript** | **NO** — built-in TS server is open/edited files only; `enableProjectDiagnostics` is abandoned by Microsoft | **YES** — `pnpm run typecheck` or manual `frontend: typecheck` task |
+| **TypeScript** | **YES (experimental)** — `js/ts.tsserver.experimental.enableProjectDiagnostics: true` in **user** settings; may lag or go stale on large projects | **YES** — `pnpm run typecheck` or manual `frontend: typecheck` task |
 | **ESLint** | **NO** — extension lints **open/edited files only** ([vscode-eslint README](https://github.com/microsoft/vscode-eslint)) | **YES** — `pnpm run lint` or **Tasks → eslint: lint whole folder** (with `eslint.lintTask.enable`) |
 
 **Empty Problems panel = clean code.** That is expected when CLI passes.
@@ -34,7 +34,7 @@ When setting up or verifying dev tooling in a similar repo:
 
 | Layer | Location | Purpose | Commit? |
 |-------|----------|---------|---------|
-| **Rules** | `pyproject.toml`, `eslint.config.mjs` | What to enforce — shared by CLI and editor | Yes |
+| **Rules** | `pyproject.toml`, `eslint.config.mjs`, `.prettierrc` | What to enforce — shared by CLI and editor | Yes |
 | **Project wiring** | `.vscode/settings.json` | Where tools find config, venv, subdirs | Yes |
 | **Personal prefs** | User `settings.json` | Format-on-save, global extension toggles | No (per machine) |
 
@@ -52,7 +52,7 @@ Install once per machine (workspace recommends these via `.vscode/extensions.jso
 | Ruff | `charliermarsh.ruff` | Python lint + format (LSP) |
 | Python | `ms-python.python` | Interpreter selection |
 | ESLint | `dbaeumer.vscode-eslint` | JS/TS lint (LSP) |
-| Prettier | `esbenp.prettier-vscode` | JS/TS format (optional but used below) |
+| Prettier | `esbenp.prettier-vscode` | JS/TS format (uses the project's `prettier` + `.prettierrc`) |
 
 After installing: **Cmd+Shift+P → Developer: Reload Window**.
 
@@ -190,20 +190,21 @@ All three must pass before merging.
 
 ---
 
-## Frontend (Next.js + ESLint + TypeScript)
+## Frontend (Next.js + ESLint + Prettier + TypeScript)
 
 ### 1. Install dev dependencies
 
 ```bash
 cd frontend
-pnpm add -D eslint eslint-config-next @eslint/eslintrc typescript
+pnpm add -D eslint eslint-config-next eslint-config-prettier prettier typescript
 ```
 
-### 2. Create `frontend/eslint.config.mjs`
+### 2. Create `frontend/eslint.config.mjs` and `frontend/.prettierrc`
 
 ESLint 9+ flat config. Rules live here — not in VS Code settings.
 
 ```js
+import prettier from "eslint-config-prettier/flat";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
 
@@ -215,10 +216,29 @@ const config = [
       // project-specific overrides only
     },
   },
+  prettier, // must stay last — turns off ESLint rules that conflict with Prettier
 ];
 
 export default config;
 ```
+
+**No framework yet?** Swap the two Next.js configs for `typescript-eslint` (`pnpm add -D typescript-eslint`, then `import tseslint from "typescript-eslint";` and `...tseslint.configs.recommended`). Keep `prettier` last.
+
+`frontend/.prettierrc` — committed so the CLI and the editor format identically (`printWidth` matches Ruff's `line-length`):
+
+```json
+{
+  "printWidth": 100
+}
+```
+
+`frontend/.prettierignore`:
+
+```
+pnpm-lock.yaml
+```
+
+Check for ESLint/Prettier rule conflicts any time `eslint.config.mjs` changes: `pnpm exec eslint-config-prettier <any-source-file>`.
 
 ### 3. Add scripts to `frontend/package.json`
 
@@ -226,12 +246,14 @@ export default config;
 {
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   }
 }
 ```
 
-**Note:** ESLint = lint rules. `tsc --noEmit` = full project type checking. Separate tools.
+**Note:** ESLint = lint rules (like `ruff check`). Prettier = formatting (like `ruff format`). `tsc --noEmit` = full project type checking (like `basedpyright`). Separate tools.
 
 ### 4. Verify CLI
 
@@ -239,6 +261,7 @@ export default config;
 cd frontend
 pnpm run lint
 pnpm run typecheck
+pnpm run format:check
 ```
 
 ---
@@ -253,7 +276,8 @@ pnpm run typecheck
     "detachhead.basedpyright",
     "charliermarsh.ruff",
     "ms-python.python",
-    "dbaeumer.vscode-eslint"
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode"
   ]
 }
 ```
@@ -310,7 +334,7 @@ Optional — enables **Tasks → eslint: lint whole folder** (manual full-projec
 | `python.analysis.*` | Pylance only — **ignored by BasedPyright** |
 | `cursorpyright.*` | Cursor built-in checker — **not BasedPyright** |
 | `ruff.lint.run` | Deprecated ruff-lsp setting — use Ruff native extension only |
-| `typescript.tsserver.experimental.enableProjectDiagnostics` | Unreliable — Microsoft will not fix it |
+| `typescript.tsserver.experimental.enableProjectDiagnostics` | Deprecated name, and a personal preference — set `js/ts.tsserver.experimental.enableProjectDiagnostics` in **user** settings instead |
 | ESLint rule overrides | Belong in `eslint.config.mjs` |
 | `runOn: folderOpen` tasks | Spawns visible terminal processes on every reload — avoid unless user asks |
 
@@ -326,18 +350,20 @@ Current manual tasks in this repo:
 | `backend: ruff check` | `uv run ruff check src tests` | `$ruff` |
 | `backend: ruff format` | `uv run ruff format --check src tests` | — |
 | `backend: basedpyright` | `uv run basedpyright src tests` | — |
-| `frontend: dev` | `pnpm run dev` | — |
+| `frontend: dev` | `pnpm run dev` (needs a `dev` script — added by your framework) | — |
 | `frontend: lint` | `pnpm run lint` | `$eslint-stylish` |
 | `frontend: typecheck` | `pnpm run typecheck` | `$tsc` |
+| `frontend: format` | `pnpm run format:check` | — |
 
 ---
 
 ## User settings (once per machine)
 
-Path on macOS (Cursor/VS Code):
+Path on macOS:
 
 ```
-~/Library/Application Support/Cursor/User/settings.json
+~/Library/Application Support/Code/User/settings.json     # VS Code
+~/Library/Application Support/Cursor/User/settings.json   # Cursor
 ```
 
 ### Minimal tooling template
@@ -397,7 +423,8 @@ Path on macOS (Cursor/VS Code):
   },
   "eslint.enable": true,
   "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
-  "eslint.workingDirectories": [{ "mode": "auto" }]
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "js/ts.tsserver.experimental.enableProjectDiagnostics": true
 }
 ```
 
@@ -409,6 +436,7 @@ Path on macOS (Cursor/VS Code):
 | `basedpyright.analysis.configFilePath` | Per-project — use workspace settings |
 | `python.analysis.diagnosticMode` | Pylance only — use `basedpyright.analysis.diagnosticMode` in workspace |
 | `cursorpyright.*` | Wrong tool if using BasedPyright extension |
+| `ruff.lint.select`, `ruff.lineLength`, `ruff.configuration` | Ruff's default `ruff.configurationPreference: "editorFirst"` makes these **override** `pyproject.toml` — editor and CLI then enforce different rules |
 
 ---
 
@@ -421,7 +449,7 @@ Path on macOS (Cursor/VS Code):
 | While typing | **BasedPyright** | **Whole workspace** (`src/`, `tests/`) | Type errors → Problems panel |
 | While typing | **Ruff** | **Open/edited files only** | Lint squiggles + Problems |
 | While typing | **ESLint** | **Open/edited files only** | Lint squiggles + Problems |
-| While typing | **TypeScript** | **Open/edited files only** | Type errors → Problems (`ts` source) |
+| While typing | **TypeScript** | **Whole workspace** (experimental user setting) | Type errors → Problems (`ts` source) |
 | On save / focus change | **Ruff** | Current file | Format + auto-fix + organize imports |
 | On save / focus change | **ESLint + Prettier** | Current file | Auto-fix + format JS/TS |
 
@@ -438,6 +466,7 @@ uv run basedpyright src tests
 # Frontend — scans all TS/JS files
 pnpm run lint
 pnpm run typecheck
+pnpm run format:check
 ```
 
 Or run matching tasks from **Tasks: Run Task** in VS Code.
@@ -463,16 +492,16 @@ def _pyright_smoke_test() -> int:
 
 Expect **2 errors** in Problems (`reportAssignmentType`). Source: **basedpyright**.
 
-### TypeScript (open file only unless you run `pnpm run typecheck`)
+### TypeScript (should show even if file not open — experimental)
 
-Add to any `.ts` file under `frontend/src/`:
+Create a temporary `.ts` file under `frontend/`:
 
 ```typescript
 // --- SMOKE TEST: delete after verifying ---
 const _smokeNumber: number = "not-a-number";
 ```
 
-Expect **1 error** in Problems when file is open. Source: **ts**.
+Expect **1 error** in Problems, even after closing the file. Source: **ts**. If it only shows while open, check `js/ts.tsserver.experimental.enableProjectDiagnostics` in user settings and reload the window.
 
 ### ESLint (open file only)
 
@@ -486,7 +515,7 @@ Copy in this order:
 
 - [ ] **1.** Create `backend/pyproject.toml` with `[tool.basedpyright]` + `[tool.ruff]` + `[tool.pytest.ini_options]`
 - [ ] **2.** `uv sync` — select `backend/.venv` interpreter
-- [ ] **3.** Create `frontend/eslint.config.mjs` + `lint` / `typecheck` scripts
+- [ ] **3.** Create `frontend/eslint.config.mjs` + `.prettierrc` + `lint` / `typecheck` / `format` / `format:check` scripts
 - [ ] **4.** Add `.vscode/settings.json` (monorepo paths)
 - [ ] **5.** Add `.vscode/extensions.json`
 - [ ] **6.** Add `.vscode/tasks.json` (manual tasks only — no `runOn: folderOpen`)
@@ -587,23 +616,29 @@ setup_logger()  # call before create_app()
 | `python.analysis.*` does nothing | Pylance setting — use `basedpyright.*` instead |
 | Deprecated ruff-lsp warning | Remove `ruff.lint.run` from settings |
 | Ruff lint missing in closed files | **Expected** — run `uv run ruff check` for full scan |
-| TS errors missing in closed files | **Expected** — run `pnpm run typecheck` for full scan |
+| TS errors missing in closed files | Set `js/ts.tsserver.experimental.enableProjectDiagnostics: true` in user settings + Reload Window. Errors stale/slow? It's experimental — `pnpm run typecheck` is always accurate |
 | Three terminal tasks on reload | Remove `"runOn": "folderOpen"` from tasks.json |
 | Formatter + lint conflict | Remove `COM` from Ruff select |
+| Editor Ruff flags differ from `uv run ruff check` | Remove `ruff.lint.select` / `ruff.lineLength` / `ruff.configuration` from user settings — rules belong in `pyproject.toml` |
+| TS/TSX not formatted or auto-fixed on save | User settings need the `[typescript]` / `[typescriptreact]` blocks; Prettier extension installed; Reload Window |
+| ESLint and Prettier fight over the same lines | `prettier` must be the **last** entry in `eslint.config.mjs`; run `pnpm exec eslint-config-prettier <file>` |
 
 ---
 
 ## Reference: this repo's layout
 
 ```
-Market Agent/
+<project>/
+├── SETUP.md                      ← this file
+├── CLAUDE.md                     ← shared coding rules for AI agents (copied with the template)
 ├── backend/
-│   ├── docs/setup.md             ← this file
+│   ├── CLAUDE.md                 ← backend-only rules (load when working in backend/)
 │   ├── pyproject.toml            ← Python rules (single source of truth)
 │   ├── .basedpyright/baseline.json
 │   └── .venv/
 ├── frontend/
 │   ├── eslint.config.mjs         ← ESLint rules
+│   ├── .prettierrc               ← Prettier format rules
 │   ├── package.json
 │   └── tsconfig.json             ← TypeScript (separate from ESLint)
 └── .vscode/
@@ -619,8 +654,8 @@ Market Agent/
 Before marking tooling setup done, confirm:
 
 1. `uv run ruff check`, `uv run ruff format --check`, `uv run basedpyright` pass in `backend/`
-2. `pnpm run lint` and `pnpm run typecheck` pass in `frontend/`
+2. `pnpm run lint`, `pnpm run typecheck` and `pnpm run format:check` pass in `frontend/`
 3. BasedPyright smoke test appears in Problems (then removed)
 4. No duplicate config files (`pyrightconfig.json` at root if `pyproject.toml` exists)
-5. No deprecated settings (`ruff.lint.run`, `enableProjectDiagnostics`, `cursorpyright.*`)
+5. No deprecated settings (`ruff.lint.run`, `typescript.tsserver.experimental.enableProjectDiagnostics`, `cursorpyright.*`) — the `js/ts.*` version in user settings is intended
 6. No auto `runOn: folderOpen` tasks unless user requested them
