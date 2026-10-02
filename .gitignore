@@ -1,1 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+backend/.basedpyright/
+!backend/.basedpyright/baseline.json
+
+# Node / frontend
+node_modules/
+.pnpm-store/
+.next/
+next-env.d.ts
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Env — commit only .env.example
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Editor / OS
 .DS_Store
+Thumbs.db
+.idea/
