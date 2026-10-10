@@ -1,0 +1,306 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "backend: dev",
+      "type": "shell",
+      "command": "uv run uvicorn src.app.main:app --reload",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "backend: ruff",
+      "type": "shell",
+      "command": "uv run ruff check --output-format concise src tests",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": [
+        {
+          "owner": "ruff",
+          "source": "ruff (task)",
+          "fileLocation": ["relative", "${workspaceFolder}/backend"],
+          "pattern": {
+            "regexp": "^(.+?):(\\d+):(\\d+): (\\w+) (?:\\[\\*\\] )?(.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "code": 4,
+            "message": 5
+          }
+        }
+      ]
+    },
+    {
+      "label": "backend: basedpyright",
+      "type": "shell",
+      "command": "uv run basedpyright",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1",
+          "FORCE_COLOR": "0"
+        }
+      },
+      "problemMatcher": [
+        {
+          "owner": "basedpyright",
+          "source": "basedpyright (task)",
+          "fileLocation": "absolute",
+          "pattern": {
+            "regexp": "^\\s+(/.+?):(\\d+):(\\d+) - (error|warning|information): (.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "severity": 4,
+            "message": 5
+          }
+        }
+      ]
+    },
+    {
+      "label": "backend: function length (flake8)",
+      "type": "shell",
+      "command": "uv run flake8 --color never src tests",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": [
+        {
+          "owner": "flake8",
+          "source": "flake8 (task)",
+          "fileLocation": ["relative", "${workspaceFolder}/backend"],
+          "pattern": {
+            "regexp": "^(.+?):(\\d+):(\\d+): (\\w+):? (.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "code": 4,
+            "message": 5
+          }
+        }
+      ]
+    },
+    {
+      "label": "backend: file length (pylint)",
+      "type": "shell",
+      "command": "uv run pylint src tests --score=n --msg-template='{path}:{line}:{column}: {msg_id} {msg}'",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": [
+        {
+          "owner": "pylint",
+          "source": "pylint (task)",
+          "fileLocation": ["relative", "${workspaceFolder}/backend"],
+          "pattern": {
+            "regexp": "^(.+?):(\\d+):(\\d+): (\\w+) (.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "code": 4,
+            "message": 5
+          }
+        }
+      ]
+    },
+    {
+      "label": "backend: structure (tach)",
+      "type": "shell",
+      "command": "uv run tach check",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": [
+        {
+          "owner": "tach",
+          "source": "tach (task)",
+          "fileLocation": ["relative", "${workspaceFolder}/backend"],
+          "pattern": {
+            "regexp": "^(?:\\[(?:FAIL|WARN)\\]|❌|⚠️?) (.+?):(\\d+): (.*)$",
+            "file": 1,
+            "line": 2,
+            "message": 3
+          },
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "label": "backend: format",
+      "type": "shell",
+      "command": "uv run ruff format --check src tests",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "backend: test",
+      "type": "shell",
+      "command": "uv run pytest --tb=line",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": [
+        {
+          "owner": "pytest",
+          "source": "pytest (task)",
+          "fileLocation": "absolute",
+          "pattern": {
+            "regexp": "^(/.+?\\.py):(\\d+): (.*)$",
+            "file": 1,
+            "line": 2,
+            "message": 3
+          }
+        }
+      ]
+    },
+    {
+      "label": "backend: audit",
+      "type": "shell",
+      "command": "uv run pip-audit --progress-spinner off",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "frontend: dev",
+      "type": "shell",
+      "command": "pnpm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "frontend: lint",
+      "type": "shell",
+      "command": "pnpm run --silent lint --format unix",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": [
+        {
+          "owner": "oxlint",
+          "source": "oxlint (task)",
+          "fileLocation": ["relative", "${workspaceFolder}/frontend"],
+          "pattern": {
+            "regexp": "^(.+?):(\\d+):(\\d+): (.*) \\[(Error|Warning)/(.+)\\]$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "message": 4,
+            "severity": 5,
+            "code": 6
+          }
+        }
+      ]
+    },
+    {
+      "label": "frontend: typecheck",
+      "type": "shell",
+      "command": "pnpm run typecheck",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": [
+        {
+          "base": "$tsc",
+          "fileLocation": ["relative", "${workspaceFolder}/frontend"],
+          "source": "tsc (task)"
+        }
+      ]
+    },
+    {
+      "label": "frontend: format",
+      "type": "shell",
+      "command": "pnpm run format:check",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "frontend: test",
+      "type": "shell",
+      "command": "pnpm run test",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "frontend: audit",
+      "type": "shell",
+      "command": "pnpm run audit",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "check: all",
+      "dependsOn": [
+        "backend: ruff",
+        "backend: basedpyright",
+        "backend: function length (flake8)",
+        "backend: file length (pylint)",
+        "backend: structure (tach)",
+        "backend: format",
+        "backend: test",
+        "frontend: lint",
+        "frontend: typecheck",
+        "frontend: format",
+        "frontend: test"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    }
+  ]
+}

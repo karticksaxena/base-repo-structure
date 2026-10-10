@@ -1,0 +1,37 @@
+# NestJS-style layers: router -> service -> repository.
+# Its own file (not [tool.tach] in pyproject.toml): the VS Code extension starts
+# `tach server -c backend/tach.toml` from the repo root, and `-c` reads a whole file
+# as tach config.
+#
+# Feature layers (router -> service -> repository, and another feature only through its
+# service) live next to each feature: src/app/features/<name>/tach.domain.toml.
+source_roots = ["."]
+exclude = ["tests", "**/__pycache__", ".venv"]
+root_module = "forbid"                         # every source file must belong to a module below
+
+[[modules]]
+path = "src.app.main"
+depends_on = [
+  "src.app.core.container",
+  "src.app.core.logger",
+  "src.app.features.*.router",
+]
+
+[[modules]]
+path = "src.app.core.config"
+depends_on = []
+utility = true               # any module may read settings
+
+[[modules]]
+path = "src.app.core.logger"
+depends_on = ["src.app.core.config"]
+utility = true                       # any module may log
+
+[[modules]]
+path = "src.app.common"
+depends_on = []
+utility = true          # shared by every feature (NestJS common/); never imports a feature
+
+[[modules]]
+path = "src.app.core.container"
+depends_on = ["src.app.features.*.dependencies"]

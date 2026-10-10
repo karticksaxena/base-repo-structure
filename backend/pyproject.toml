@@ -1,25 +1,119 @@
 [project]
-name = "base-repo-structure"
+name = "backend"
 version = "0.1.0"
-description = "Production-grade FastAPI boilerplate with Google ADK multi-agent architecture"
-requires-python = ">=3.14"
+description = "FastAPI backend with NestJS-style feature modules"
+requires-python = ">=3.15"
 dependencies = [
-    "fastapi>=0.115.0",
-    "uvicorn>=0.38.0",
-    "google-adk>=1.19.0",
-    "mcp>=1.23.1",
-    "python-dotenv>=1.2.1",
-    "pydantic>=2.12.5",
-    "loguru>=0.7.3",
-    "dishka>=0.23.0",
+  "dishka>=1.10.1",
+  "fastapi>=0.143.0",
+  "loguru>=0.7.3",
+  "pydantic-settings>=2.15.0",
+  "uvicorn>=0.54.0",
 ]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src"]
-
 [dependency-groups]
-dev = []
+dev = [
+  "basedpyright>=1.40.2",
+  "flake8>=7.4.1",
+  "flake8-max-function-length>=0.10.0",
+  "flake8-pyproject>=1.2.4",
+  "httpx2>=2.13.1",
+  "pip-audit>=2.10.1",
+  "pylint>=4.1.2",
+  "pytest>=9.1.1",
+  "pytest-asyncio>=1.4.0",
+  "ruff>=0.17.0",
+  "tach>=0.35.3",
+]
+
+# --- Type checking (BasedPyright) ---
+[tool.basedpyright]
+pythonVersion = "3.15"           # match .python-version
+typeCheckingMode = "recommended"
+failOnWarnings = true
+include = ["src", "tests"]
+venvPath = "."                   # editor and CLI resolve imports from the same venv
+venv = ".venv"
+
+# --- Lint + format (Ruff) ---
+[tool.ruff]
+target-version = "py315" # match pythonVersion
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "W",     # pycodestyle
+  "F",     # pyflakes
+  "I",     # isort
+  "UP",    # pyupgrade
+  "B",     # flake8-bugbear
+  "C4",    # flake8-comprehensions
+  "G",     # flake8-logging-format
+  "SIM",   # flake8-simplify
+  "TID",   # tidy imports: no relative imports, banned APIs
+  "S",     # security (bandit)
+  "ANN",   # annotations
+  "FAST",  # FastAPI
+  "ASYNC", # async pitfalls
+  "T20",   # no print()
+  "PT",    # pytest style
+  "RUF",   # Ruff-specific (incl. RUF100: unused noqa)
+  "PIE",   # misc. lints
+  "PERF",  # performance anti-patterns
+  "FURB",  # refurb: modern idioms
+  "DTZ",   # timezone-naive datetimes
+  "LOG",   # logging misuse
+  "PLE",   # pylint errors
+  "PLW",   # pylint warnings
+  "ARG",   # unused arguments
+  "C90",   # cyclomatic complexity (max-complexity below)
+]
+unfixable = ["F841"] # never auto-delete unused variables
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]                 # assert is how pytest checks
+"**/__init__.py" = ["TID252"]         # relative imports allowed only in __init__.py
+"src/app/core/logger.py" = ["TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"loguru".msg = "Import `logger` from `src.app.core.logger`."
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+# --- Function length <= 100 code lines (flake8, read via flake8-pyproject) ---
+[tool.flake8]
+select = ["MFL"]                   # only flake8-max-function-length; Ruff does the rest
+max-function-length = 100
+exclude = [".venv", "__pycache__"]
+
+# --- File length <= 500 lines (pylint, this one check only) ---
+[tool.pylint."messages control"]
+disable = ["all"]
+enable = ["too-many-lines"]
+
+[tool.pylint.format]
+max-module-lines = 500
+
+# --- Tests (pytest) ---
+[tool.pytest]
+addopts = [
+  "--strict-markers",
+  "--import-mode=importlib",
+  "-p",
+  "no:tach",
+] # tach's pytest plugin is not used
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto" # pytest-asyncio: run async def tests without a marker
+markers = [
+  "unit: isolated tests, no DB/Redis dependency",
+  "integration: tests that hit a real DB/Redis instance",
+]
