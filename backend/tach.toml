@@ -28,5 +28,10 @@ depends_on = ["src.app.core.config"]
 utility = true                       # any module may log
 
 [[modules]]
+path = "src.app.common"
+depends_on = []
+utility = true          # shared by every feature (NestJS common/); never imports a feature
+
+[[modules]]
 path = "src.app.core.container"
 depends_on = ["src.app.features.*.dependencies"]

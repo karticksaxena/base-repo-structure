@@ -18,6 +18,7 @@ Always the latest stable, mutually compatible versions — never prereleases, ne
 src/app/
   main.py                 # app factory: logger, routers, dishka (Nest AppModule + main.ts)
   core/                   # config, logger, container — never imports a feature
+  common/                 # code shared by 2+ features: domain errors, guards, utils, constants (NestJS common/)
   features/<name>/
     __init__.py
     router.py             # HTTP only                 (Nest controller)
@@ -34,9 +35,11 @@ src/app/
 | Imports go router → service → repository only — no skipping, nothing upward                                  | tach (`tach.domain.toml`)         | live in open files (source `tach`), task `backend: structure (tach)`, pre-commit hook |
 | Another feature is used only through its service (or schemas) — never its repository, router or dependencies | tach (`tach.domain.toml`)         | same                                                                                  |
 | `core/` never imports a feature (only `container.py` imports feature providers)                              | tach                              | same                                                                                  |
+| `common/` is shared by everyone and never imports a feature (or `core/container.py`)                         | tach (`tach.toml`)                | same                                                                                  |
 | Every file is one of the files above (`root_module = "forbid"`)                                              | tach                              | same                                                                                  |
 | No import cycles                                                                                             | BasedPyright `reportImportCycles` | live, whole workspace                                                                 |
 
+- Shared code moves to `common/` only when a second feature needs it — never a feature importing another feature's internals
 - Add a feature by copying `features/items/` (its `tach.domain.toml` comes along), then register its router in `main.py` and its provider in `core/container.py`
 - When a check fails, change the code to fit the structure — never loosen `tach.toml`, a `tach.domain.toml`, the structure test or a lint rule to make it pass. A genuinely new kind of file (e.g. `models.py` once a DB lands) gets its own `tach.toml` module entry — ask first
 - After editing files, trust `uv run tach check` over the editor: the Tach extension doesn't see disk changes until the file is reopened or **Tach: Restart Server** runs

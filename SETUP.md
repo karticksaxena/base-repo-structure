@@ -268,6 +268,11 @@ depends_on = ["src.app.core.config"]
 utility = true                       # any module may log
 
 [[modules]]
+path = "src.app.common"
+depends_on = []
+utility = true          # shared by every feature (NestJS common/); never imports a feature
+
+[[modules]]
 path = "src.app.core.container"
 depends_on = ["src.app.features.*.dependencies"]
 ```
@@ -318,7 +323,7 @@ Notes (each verified by running the tool):
 - **`banned-api`** makes `from loguru import logger` an error everywhere except `core/logger.py`.
 - **flake8** runs only `MFL`. `flake8-max-function-length` counts code lines only (it skips the `def` line, docstrings, blank lines and comments — the same as oxlint's `skipBlankLines` / `skipComments`).
 - **pylint** runs only `too-many-lines` (`C0302`). It counts **every** line, blank and comment lines included, so the Python file limit is slightly stricter than the frontend's. Ruff has no line-count rule (checked in Ruff 0.17: only `PLR0915` statement counts and `C901` complexity).
-- **tach** (rules in `tach.toml`, next section) checks imports between modules: a router importing a repository fails (`Module 'src.app.features.items.router' cannot depend on 'src.app.features.items.repository'`), a repository importing a service fails, and with `root_module = "forbid"` a file that matches no module (e.g. `features/items/utils.py`) fails as `Module '<root>' cannot depend on …`. Another feature's repository, router or dependencies are rejected too (`Module 'src.app.features.items.service' cannot depend on 'src.app.features.orders.repository'`), through the per-feature domain files. Verified against NestJS's rules with 28 import directions (own/other feature, every layer, `core/`, `main`, stray files): 28/28 behave like Nest, from the CLI and from the tach language server; the cross-feature error also shows live in VS Code's Problems tab (verified).
+- **tach** (rules in `tach.toml`, next section) mirrors a production NestJS layout — feature modules (`features/`), app-wide setup (`core/`, like Nest's `config/` + app module), shared code (`common/`, Nest's `common/`/`shared/`) — and checks imports between them: a router importing a repository fails (`Module 'src.app.features.items.router' cannot depend on 'src.app.features.items.repository'`), a repository importing a service fails, and with `root_module = "forbid"` a file that matches no module (e.g. `features/items/utils.py`) fails as `Module '<root>' cannot depend on …`. Another feature's repository, router or dependencies are rejected too (`Module 'src.app.features.items.service' cannot depend on 'src.app.features.orders.repository'`), through the per-feature domain files. Verified against NestJS's rules with 39 import directions (own/other feature, every layer, `core/`, `common/`, `main`, stray files): 39/39 behave like Nest, from the CLI and from the tach language server; the cross-feature error also shows live in VS Code's Problems tab (verified).
 - **pytest 9** reads the native `[tool.pytest]` table (header shows `configfile: pyproject.toml`, `asyncio: mode=Mode.AUTO`).
 
 ### 4. Structure (NestJS-style feature modules)
@@ -336,6 +341,7 @@ backend/
 │   │   ├── config.py       ← Settings (pydantic-settings, reads .env)
 │   │   ├── logger.py       ← loguru setup; the only place loguru is imported
 │   │   └── container.py    ← dishka container: every feature's Provider
+│   ├── common/             ← code shared by 2+ features (NestJS common/): errors, guards, utils — never imports a feature
 │   └── features/
 │       └── items/          ← sample feature — copy it for a new one
 │           ├── __init__.py
