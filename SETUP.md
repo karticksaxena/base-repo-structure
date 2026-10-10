@@ -819,7 +819,16 @@ All must pass.
 
 ## Verify editor (smoke test — delete after)
 
-Reload the window first (**Developer: Reload Window**). The Python extensions start only when a `.py` file is open: their activation looks for `pyproject.toml` / `*.py` at the **workspace root**, and this repo keeps them in `backend/`. So open a Python file once per session; BasedPyright then scans the whole workspace.
+An agent can't see VS Code by itself. Two channels exist:
+
+- **Claude Code's IDE connection.** The user runs `/ide` and picks VS Code. The agent then calls `getDiagnostics` (per file or all files) and gets exactly what the editor shows: Ruff, BasedPyright, Flake8, Pylint, tach, oxc, ts. It does **not** return task (problem-matcher) results, the `<tool> (task)` entries.
+- **The user.** Some steps need a human in the editor. Ask for all of them in **one** message (the user may not be around for several round trips), and ask for a screenshot of the Problems tab where the agent can't read it.
+
+### Step 0 — editor ready (user)
+
+One message to the user covering: install the extensions ([Required extensions](#required-vs-code-extensions)) → **Developer: Reload Window** → **Python: Select Interpreter → `backend/.venv/bin/python`** → `/ide` in Claude Code. The Python extensions start only when a `.py` file is open: their activation looks for `pyproject.toml` / `*.py` at the **workspace root**, and this repo keeps them in `backend/`. So a Python file must be open once per session; BasedPyright then scans the whole workspace.
+
+### Step 1 — create every smoke file (agent)
 
 **Backend** — create `backend/src/app/features/items/smoke.py` (a function over 100 lines and a file over 500 lines):
 
@@ -878,7 +887,49 @@ export function Smoke(): React.JSX.Element {
 
 Open all three. (`smoke-jsx.tsx` must not share a base name with `smoke.ts`: TypeScript keeps only one of `x.ts` / `x.tsx` in a project, so the other is checked as a loose file and reports false errors like `Cannot find namespace 'React'`.) Expect, source **oxc**, all errors: `no-unused-vars`, `explicit-function-return-type`, `no-explicit-any`, `no-console`, `no-floating-promises` (proves type-aware linting), `max-lines-per-function` (`big`, 104 lines), `next(no-html-link-for-pages)`, `next(no-img-element)`; source **ts**: `Type 'string' is not assignable to type 'number'`. Compare with `cd frontend && pnpm run lint` — the lists must match. Type a character in `smoke.ts` and click away: double quotes become single, semicolons are added, the unused import is removed.
 
-**Full workspace** — run **Tasks → `check: all`**: every tool's problems for every file appear, including closed ones. Delete all smoke files afterwards (`smoke.py`, `smoke_closed.py`, `smoke.ts`, `smoke-size.ts`, `smoke-jsx.tsx`).
+**Structure** — break the NestJS layering on purpose:
+
+```bash
+cd backend
+# router skips the service (tach)
+printf '\nfrom src.app.features.items.repository import ItemRepository  # SMOKE TEST\n\n_SMOKE = ItemRepository\n' >> src/app/features/items/router.py
+# feature folder missing its files (pytest)
+mkdir -p src/app/features/orders && touch src/app/features/orders/__init__.py
+printf 'from fastapi import APIRouter\n\nrouter = APIRouter(prefix="/orders")\n' > src/app/features/orders/router.py
+uv run tach check   # expect [FAIL] … Module 'src.app.features.items.router' cannot depend on 'src.app.features.items.repository'
+uv run pytest -q    # expect … src/app/features/orders/ is missing: service.py, repository.py, schemas.py, dependencies.py
+```
+
+**Pre-commit hook** — must refuse a commit while any smoke file exists:
+
+```bash
+git add -A && git commit -m "smoke: must be blocked"; echo "exit=$?"   # expect exit=1 and no new commit (git log)
+git reset -q                                                          # unstage again
+```
+
+### Step 2 — one batched request to the user
+
+> Please, in VS Code: (1) open `backend/src/app/features/items/smoke.py`, `backend/src/app/features/items/router.py`, and the three `frontend/src/app/smoke*` files — but **not** `smoke_closed.py`; (2) in `smoke.py` and `frontend/src/app/smoke.ts` type one space and press Cmd+S; (3) **Tasks: Run Task → `check: all`**, wait for every terminal to finish; (4) send a screenshot of the Problems tab, then reply "done".
+
+### Step 3 — verify (agent)
+
+- **Editor checks** — `getDiagnostics` on each smoke file must show every row of the backend and frontend tables above, plus on `router.py` source **tach**: `Module 'src.app.features.items.router' cannot depend on 'src.app.features.items.repository'`.
+- **Whole-workspace mode** — `smoke_closed.py` (never opened) must show the basedpyright type error.
+- **Fix/format on save** — read the files from disk: `smoke.py` no longer has `import os`; `smoke.ts` has single quotes, semicolons and no `readFile` import.
+- **Tasks** — in the screenshot, entries with sources `ruff (task)`, `basedpyright (task)`, `flake8 (task)`, `pylint (task)`, `tach (task)`, `pytest (task)` (orders missing files), `oxlint (task)` and `tsc (task)`.
+- If a task source is missing, run that task's command inside a pseudo-terminal and match its pattern by hand — tools print differently in a terminal than in a pipe: `script -q /dev/null sh -c '<command>' < /dev/null` with the task's `env`, then test the `regexp` from `tasks.json` against each line.
+
+### Step 4 — clean up (agent, then user)
+
+```bash
+git checkout -- backend/src/app/features/items/router.py
+rm -r backend/src/app/features/orders
+rm backend/src/app/features/items/smoke.py backend/src/app/features/items/smoke_closed.py
+rm frontend/src/app/smoke.ts frontend/src/app/smoke-size.ts frontend/src/app/smoke-jsx.tsx
+git status --short   # must be empty
+```
+
+Then ask the user for **Tach: Restart Server** and one more **`check: all`** — tach keeps errors for files changed on disk and task entries stay until their task reruns, so without this the Problems tab keeps showing the deleted smoke files. A final `getDiagnostics` (all files) must return no errors.
 
 ---
 
@@ -975,7 +1026,7 @@ Before marking tooling setup done, confirm:
 
 1. Backend: `ruff check`, `ruff format --check`, `basedpyright`, `flake8`, `pylint`, `tach check`, `pytest`, `pip-audit` all pass; the server boots and `POST /items` works
 2. Frontend: `lint`, `typecheck`, `format:check`, `test`, `build`, `audit` all pass
-3. Editor smoke test: every row of the backend and frontend tables appears in Problems — as errors where listed — including the never-opened `smoke_closed.py`; then the smoke files are removed
+3. Editor smoke test (Steps 0–4 above): every row of the backend and frontend tables appears in Problems — as errors where listed — including the never-opened `smoke_closed.py`, the tach error on `router.py`, and all eight `(task)` sources in the user's screenshot; fix/format on save confirmed on disk; the pre-commit hook refused the smoke commit; all smoke files removed and `getDiagnostics` clean
 4. Size limits are errors in both: `max-function-length = 100` + `max-module-lines = 500` (backend), `max-lines-per-function` 100 + `max-lines` 500 (frontend)
 5. `backend/tach.toml` has `root_module = "forbid"` and the router → service → repository rules; `tests/test_structure.py` exists
 6. No stray config files: no `pyrightconfig.json`, `.flake8`, `.pylintrc`, `[tool.tach]` in `pyproject.toml`, `eslint.config.mjs`, `frontend/.gitignore`
