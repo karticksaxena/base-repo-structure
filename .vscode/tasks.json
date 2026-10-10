@@ -180,6 +180,18 @@
       ]
     },
     {
+      "label": "backend: audit",
+      "type": "shell",
+      "command": "uv run pip-audit --progress-spinner off",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "frontend: dev",
       "type": "shell",
       "command": "pnpm run dev",
@@ -252,6 +264,18 @@
       "label": "frontend: test",
       "type": "shell",
       "command": "pnpm run test",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "frontend: audit",
+      "type": "shell",
+      "command": "pnpm run audit",
       "options": {
         "cwd": "${workspaceFolder}/frontend",
         "env": {

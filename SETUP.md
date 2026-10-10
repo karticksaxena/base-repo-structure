@@ -8,7 +8,7 @@ Production-ready linting, formatting, type-checking, size limits, structure chec
 
 ## For AI agents — read this first
 
-1. **Three-layer rule** — rules live in config files (`backend/pyproject.toml`, `backend/tach.toml`, `frontend/.oxlintrc.json`, `.prettierrc`, `tsconfig.json`); editor wiring **and format-on-save** live in the committed `.vscode/settings.json`; the only user setting is `files.autoSave`.
+1. **Three-layer rule** — rules live in config files (`backend/pyproject.toml`, `backend/tach.toml`, `frontend/.oxlintrc.json`, `frontend/.prettierrc`, `frontend/tsconfig.json`); editor wiring **and format-on-save** live in the committed `.vscode/settings.json`; the only user setting is `files.autoSave`.
 2. **One package manager per side** — `uv` for Python (never pip, poetry or a bare `python -m venv`); `pnpm` for the frontend (never npm or yarn). Commit `uv.lock`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`.
 3. **Latest stable versions, never pinned in docs** — `uv add <pkg>` / `pnpm add <pkg>@latest` without a version; never a prerelease. If the newest major of one tool breaks another, use the newest major that passes [Verify CLI](#verify-cli) **and** [Verify editor](#verify-editor-smoke-test--delete-after), and record why in [Troubleshooting](#troubleshooting) (current case: TypeScript stays on 6).
 4. **Bare defaults** — backend = `main.py` + `core/` + one sample feature; frontend = `create-next-app` default. Add a library only when a feature needs it ([Libraries by use case](#libraries-by-use-case)).
@@ -42,11 +42,11 @@ VS Code has **no global "lint the whole workspace" setting** — each extension 
 
 ## Architecture: three layers
 
-| Layer              | Location                                                                                                 | Purpose                                                                    | Commit? |
-| ------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------- |
-| **Rules**          | `backend/pyproject.toml`, `backend/tach.toml`, `frontend/.oxlintrc.json`, `.prettierrc`, `tsconfig.json` | What to enforce — shared by CLI and editor                                 | Yes     |
-| **Project wiring** | `.vscode/settings.json`, `extensions.json`, `tasks.json`                                                 | Interpreter/tool paths, workspace diagnostics, formatters + format-on-save | Yes     |
-| **Personal prefs** | VS Code user `settings.json`                                                                             | `files.autoSave` only                                                      | No      |
+| Layer              | Location                                                                                                                   | Purpose                                                                    | Commit? |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------- |
+| **Rules**          | `backend/pyproject.toml`, `backend/tach.toml`, `frontend/.oxlintrc.json`, `frontend/.prettierrc`, `frontend/tsconfig.json` | What to enforce — shared by CLI and editor                                 | Yes     |
+| **Project wiring** | `.vscode/settings.json`, `extensions.json`, `tasks.json`                                                                   | Interpreter/tool paths, workspace diagnostics, formatters + format-on-save | Yes     |
+| **Personal prefs** | VS Code user `settings.json`                                                                                               | `files.autoSave` only                                                      | No      |
 
 **Golden rule:** lint, type and format **rules** live in config files, never in VS Code settings.
 
@@ -101,11 +101,12 @@ Keep `.python-version`, `requires-python`, `pythonVersion` (BasedPyright) and `t
 ```bash
 uv add fastapi uvicorn pydantic-settings loguru dishka
 uv add --dev ruff basedpyright pytest pytest-asyncio httpx2 \
-  flake8 flake8-max-function-length flake8-pyproject pylint tach
+  flake8 flake8-max-function-length flake8-pyproject pylint tach pip-audit
 ```
 
 - `httpx2` — Starlette's `TestClient` now imports `httpx2` (Pydantic's successor to `httpx`) and warns `Using httpx with starlette.testclient is deprecated; install httpx2 instead` when only `httpx` is installed.
 - `flake8-pyproject` — flake8 can't read `pyproject.toml` on its own (verified: settings in `[tool.flake8]` are ignored without it). The plugin reads `pyproject.toml` from the **current directory**, which is why `flake8.cwd` points at `backend/`.
+- `pip-audit` (PyPA) checks the installed packages against known vulnerabilities — the backend twin of `pnpm audit`. uv 0.13 also has `uv audit`, but it is marked experimental (`uv audit is experimental and may change without warning`), so it isn't used.
 - No `[build-system]`: the backend is an app, not a package, so `uv` installs only its dependencies; imports resolve from `backend/` (`from src.app…`).
 
 ### 3. `backend/pyproject.toml` — all rules
@@ -267,6 +268,7 @@ backend/
 ├── pyproject.toml          ← every rule except layers
 ├── tach.toml               ← layer rules (router → service → repository)
 ├── .python-version
+├── .env.example            ← settings to copy into .env (LOG_LEVEL, LOG_FORMAT)
 ├── uv.lock
 ├── src/app/
 │   ├── main.py             ← create_app(): logger, routers, dishka (Nest AppModule + main.ts)
@@ -276,6 +278,7 @@ backend/
 │   │   └── container.py    ← dishka container: every feature's Provider
 │   └── features/
 │       └── items/          ← sample feature — copy it for a new one
+│           ├── __init__.py
 │           ├── router.py       HTTP only            (Nest controller)
 │           ├── service.py      business logic       (Nest service)
 │           ├── repository.py   data access          (in-memory until a DB is added)
@@ -363,6 +366,16 @@ def create_app() -> FastAPI:
     return app
 ```
 
+**dishka and FastAPI `Depends` together** (verified in one route): use `Depends` only for _request decomposition_ — query/path/header parameters such as pagination, which then appear in the OpenAPI docs — and dishka (`FromDishka[...]`) for everything you'd construct: services, repositories, DB sessions, clients. dishka parameters stay out of the OpenAPI schema.
+
+```python
+@router.get("")
+async def list_items(
+    page: Annotated[Pagination, Depends(pagination)],  # FastAPI: parsed from ?limit=&offset=
+    service: FromDishka[ItemService],  # dishka: built per request
+) -> list[ItemResponse]: ...
+```
+
 Request-scoped values built from the request (current user, tenant) — `FastapiProvider()` makes `Request` injectable, so the service arrives already bound to the caller (verified):
 
 ```python
@@ -430,7 +443,9 @@ class DatabaseProvider(Provider):
         return async_sessionmaker(engine, expire_on_commit=False)
 
     @provide(scope=Scope.REQUEST)
-    async def session(self, factory: async_sessionmaker[AsyncSession]) -> AsyncIterator[AsyncSession]:
+    async def session(
+        self, factory: async_sessionmaker[AsyncSession]
+    ) -> AsyncIterator[AsyncSession]:
         async with factory() as session:
             yield session
 ```
@@ -455,6 +470,7 @@ uv run flake8 src tests
 uv run pylint src tests
 uv run tach check
 uv run pytest
+uv run pip-audit
 ```
 
 All must pass. Then boot once: `uv run uvicorn src.app.main:app` → `curl -X POST localhost:8000/items -H 'content-type: application/json' -d '{"name":"Pen"}'` returns `{"id":1,"name":"Pen"}`.
@@ -500,12 +516,6 @@ echo 'lts/*' > .nvmrc
     "typescript/no-floating-promises": "error",
     "typescript/no-misused-promises": "error",
     "typescript/await-thenable": "error",
-    "typescript/no-extraneous-class": [
-      "warn",
-      {
-        "allowWithDecorator": true
-      }
-    ],
     "typescript/no-unsafe-argument": "error",
     "typescript/no-unsafe-assignment": "error",
     "typescript/no-unsafe-call": "error",
@@ -519,7 +529,6 @@ echo 'lts/*' > .nvmrc
       }
     ],
     "eslint/no-eval": "error",
-    "eslint/no-implied-eval": "error",
     "typescript/no-implied-eval": "error",
     "eslint/no-new-func": "error",
     "eslint/no-script-url": "error",
@@ -578,7 +587,7 @@ echo 'lts/*' > .nvmrc
 - Size limits: `max-lines` (500) and `max-lines-per-function` (100), code lines only. Test files are exempt from the function limit (a suite is one `describe` callback); shadcn's generated `src/components/ui/**` is exempt from return types and both limits (`shadcn add --overwrite` would undo hand edits). React components count as functions — split a component over 100 lines.
 - `no-unassigned-import` allows `import './globals.css'`. `explicit-function-return-type` applies to components: `layout.tsx` / `page.tsx` return `React.JSX.Element`.
 
-`.prettierrc` (`printWidth` matches Ruff's `line-length`; the plugin sorts and removes imports on format, and `format:check` fails on unsorted ones):
+`frontend/.prettierrc` (`printWidth` matches Ruff's `line-length`; the plugin sorts and removes imports on format, and `format:check` fails on unsorted ones):
 
 ```json
 {
@@ -677,7 +686,7 @@ One file at the repo root covers both packages (no `frontend/.gitignore`). Key e
 
 ### `.vscode/extensions.json`
 
-Recommends the eight extensions above; `unwantedRecommendations`: `ms-python.vscode-pylance`, `dbaeumer.vscode-eslint`.
+Recommends the nine extensions above; `unwantedRecommendations`: `ms-python.vscode-pylance`, `dbaeumer.vscode-eslint`.
 
 ### `.vscode/settings.json`
 
@@ -739,6 +748,10 @@ The committed file repeats the `[typescript]` block for `[typescriptreact]`, `[j
 
 Why each line (setting names checked in each extension's `package.json`):
 
+- `npm.autoDetect: "off"` — hides VS Code's auto-generated npm script tasks so the task list only shows this repo's tasks.
+- `python.languageServer: "None"` — turns off Pylance's language server; BasedPyright provides types instead.
+- `pylint.lintOnChange: true` — Pylint re-checks while you type (default: on save only).
+- `oxc.requireConfig: true` — oxlint runs only where a `.oxlintrc.json` exists (`frontend/`), so other files get no default-rule noise.
 - `editor.formatOnSave` + per-language `defaultFormatter` — every file type with a formatter is formatted on save: Python by Ruff, TS/JS/JSON/CSS/Markdown/YAML by Prettier, TOML by Even Better TOML. Files without a formatter (`.gitignore`, `.nvmrc`) are left alone.
 - `basedpyright.analysis.diagnosticMode: "workspace"` — type errors for **every** file, opened or not (verified: an unopened file's error appears in Problems). `configFilePath` points BasedPyright at `backend/pyproject.toml`.
 - `*.interpreter` + `importStrategy: "fromEnvironment"` — Ruff, Flake8 and Pylint run the versions in `backend/.venv` (the same ones as the CLI, with the `flake8-max-function-length` / `flake8-pyproject` plugins); the bundled copies don't have the plugins.
@@ -750,26 +763,27 @@ Why each line (setting names checked in each extension's `package.json`):
 
 ### `.vscode/tasks.json` — manual only
 
-| Task                                | Command (cwd)                                                                               | Problem matcher                                                                                   |
-| ----------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `backend: dev`                      | `uv run uvicorn src.app.main:app --reload` (backend)                                        | —                                                                                                 |
-| `backend: ruff`                     | `uv run ruff check --output-format concise src tests`                                       | `ruff`                                                                                            |
-| `backend: basedpyright`             | `uv run basedpyright`                                                                       | `basedpyright` (absolute paths)                                                                   |
-| `backend: function length (flake8)` | `uv run flake8 --color never src tests`                                                     | `flake8`                                                                                          |
-| `backend: file length (pylint)`     | `uv run pylint src tests --score=n --msg-template='{path}:{line}:{column}: {msg_id} {msg}'` | `pylint`                                                                                          |
-| `backend: structure (tach)`         | `uv run tach check`                                                                         | `tach` (`[FAIL] file:line:` when piped, `❌ file:line:` in a terminal — the pattern accepts both) |
-| `backend: format`                   | `uv run ruff format --check src tests`                                                      | —                                                                                                 |
-| `backend: test`                     | `uv run pytest --tb=line`                                                                   | `pytest` (failing assertion line)                                                                 |
-| `frontend: dev`                     | `pnpm run dev` (frontend)                                                                   | —                                                                                                 |
-| `frontend: lint`                    | `pnpm run --silent lint --format unix`                                                      | `oxlint`                                                                                          |
-| `frontend: typecheck`               | `pnpm run typecheck`                                                                        | `$tsc`, `fileLocation` = `frontend/`                                                              |
-| `frontend: format` / `test`         | `pnpm run format:check` / `pnpm run test`                                                   | —                                                                                                 |
-| **`check: all`**                    | every task above except `dev`, in parallel                                                  | each task's own                                                                                   |
+| Task                                 | Command (cwd)                                                                               | Problem matcher                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `backend: dev`                       | `uv run uvicorn src.app.main:app --reload` (backend)                                        | —                                                                                                 |
+| `backend: ruff`                      | `uv run ruff check --output-format concise src tests`                                       | `ruff`                                                                                            |
+| `backend: basedpyright`              | `uv run basedpyright`                                                                       | `basedpyright` (absolute paths)                                                                   |
+| `backend: function length (flake8)`  | `uv run flake8 --color never src tests`                                                     | `flake8`                                                                                          |
+| `backend: file length (pylint)`      | `uv run pylint src tests --score=n --msg-template='{path}:{line}:{column}: {msg_id} {msg}'` | `pylint`                                                                                          |
+| `backend: structure (tach)`          | `uv run tach check`                                                                         | `tach` (`[FAIL] file:line:` when piped, `❌ file:line:` in a terminal — the pattern accepts both) |
+| `backend: format`                    | `uv run ruff format --check src tests`                                                      | —                                                                                                 |
+| `backend: test`                      | `uv run pytest --tb=line`                                                                   | `pytest` (failing assertion line)                                                                 |
+| `frontend: dev`                      | `pnpm run dev` (frontend)                                                                   | —                                                                                                 |
+| `frontend: lint`                     | `pnpm run --silent lint --format unix`                                                      | `oxlint`                                                                                          |
+| `frontend: typecheck`                | `pnpm run typecheck`                                                                        | `$tsc`, `fileLocation` = `frontend/`                                                              |
+| `frontend: format` / `test`          | `pnpm run format:check` / `pnpm run test`                                                   | —                                                                                                 |
+| `backend: audit` / `frontend: audit` | `uv run pip-audit --progress-spinner off` / `pnpm run audit`                                | — (not part of `check: all`: they report vulnerable packages, not file problems)                  |
+| **`check: all`**                     | every task above except `dev`, in parallel                                                  | each task's own                                                                                   |
 
 Run **Tasks: Run Task → `check: all`** for a full-workspace scan: every file's problems land in the Problems panel (verified: entries from all eight tools appeared), one owner per tool, so a rerun of one task replaces only its own entries. Task problems stay until that task runs again.
 
 - Task entries carry the source `<tool> (task)` (e.g. `tach (task)`); live editor entries carry the plain tool name (`tach`). A task entry is a snapshot of its last run: it stays — even for a file that was fixed or deleted — until that task runs again, so rerun `check: all` after big changes. The Tach extension re-checks a file only when it is opened or saved: its server ignores edits (`Received unknown notification: textDocument/didChange` in Output → **Tach**), so after an agent or `git` changes a file on disk its old errors stay. Clear them with **Tach: Restart Server** (or close and reopen the file).
-- Every task sets `NO_COLOR=1` (and the BasedPyright task also `FORCE_COLOR=0`, which BasedPyright needs; Ruff reads any `FORCE_COLOR` as "on", so it isn't global), and flake8 gets `--color never`. VS Code runs tasks in a terminal, where these tools print colour codes otherwise, and the problem patterns would then match nothing (verified by running each task command in a pseudo-terminal against real violations).
+- Every non-composite task sets `NO_COLOR=1` (and the BasedPyright task also `FORCE_COLOR=0`, which BasedPyright needs; Ruff reads any `FORCE_COLOR` as "on", so it isn't global), and flake8 gets `--color never`. VS Code runs tasks in a terminal, where these tools print colour codes otherwise, and the problem patterns would then match nothing (verified by running each task command in a pseudo-terminal against real violations).
 - `check: all` runs its tasks **in parallel** (one terminal each). Keep it that way: with `"dependsOrder": "sequence"` VS Code stops at the first task that fails, and the remaining tools never report.
 - Agents: the Claude Code `getDiagnostics` tool returns extension diagnostics only, not task problem-matcher results. Ask the user which sources appear in Problems after running `check: all`.
 - Never add `"runOn": "folderOpen"` (it opens terminals on every reload) unless the user asks.
@@ -796,7 +810,7 @@ Run **Tasks: Run Task → `check: all`** for a full-workspace scan: every file's
 
 ```bash
 cd backend && uv run ruff check src tests && uv run ruff format --check src tests && uv run basedpyright \
-  && uv run flake8 src tests && uv run pylint src tests && uv run tach check && uv run pytest
+  && uv run flake8 src tests && uv run pylint src tests && uv run tach check && uv run pytest && uv run pip-audit
 cd ../frontend && pnpm run lint && pnpm run typecheck && pnpm run format:check \
   && pnpm run test && pnpm run build && pnpm run audit
 ```
@@ -922,7 +936,7 @@ There is no CI workflow in this template.
 - [ ] **3.** Install the VS Code extensions, uninstall Pylance → Reload Window → **Select Interpreter** → `backend/.venv`
 - [ ] **4.** User settings: `files.autoSave: "onFocusChange"`
 - [ ] **4b.** `git config core.hooksPath .githooks` (pre-commit hook)
-- [ ] **5.** Create `backend/.env` / `frontend/.env.local` for secrets (never commit)
+- [ ] **5.** `cp backend/.env.example backend/.env`; create `frontend/.env.local` for frontend secrets (never commit either)
 - [ ] **6.** Run [Verify CLI](#verify-cli) — all green
 - [ ] **7.** Run the [editor smoke test](#verify-editor-smoke-test--delete-after) → delete the smoke files
 - [ ] **8.** Commit config files — never rely on personal settings alone
@@ -937,13 +951,14 @@ There is no CI workflow in this template.
 ├── README.md
 ├── CLAUDE.md                   ← shared coding rules for AI agents
 ├── .gitignore                  ← one file for backend + frontend
-├── .prettierrc                 ← format style for root files (docs, .vscode/*.json) — same as frontend's
+├── .prettierrc                 ← format style for root files (docs, .vscode/*.json) — frontend's style without the organize-imports plugin
 ├── .vscode/                    ← extensions, settings (wiring + format on save), tasks
+├── .githooks/pre-commit        ← runs the fast checks before each commit
 ├── backend/
 │   ├── CLAUDE.md               ← backend rules
 │   ├── pyproject.toml          ← backend rules (Ruff, BasedPyright, flake8, pylint, pytest)
 │   ├── tach.toml               ← layer rules
-│   ├── .python-version, uv.lock
+│   ├── .python-version, uv.lock, .env.example
 │   ├── src/app/                ← main.py, core/, features/<name>/
 │   └── tests/                  ← test_structure.py + features/ mirror
 └── frontend/                   ← Next.js (App Router, src/, Tailwind, Turbopack)
@@ -958,7 +973,7 @@ There is no CI workflow in this template.
 
 Before marking tooling setup done, confirm:
 
-1. Backend: `ruff check`, `ruff format --check`, `basedpyright`, `flake8`, `pylint`, `tach check`, `pytest` all pass; the server boots and `POST /items` works
+1. Backend: `ruff check`, `ruff format --check`, `basedpyright`, `flake8`, `pylint`, `tach check`, `pytest`, `pip-audit` all pass; the server boots and `POST /items` works
 2. Frontend: `lint`, `typecheck`, `format:check`, `test`, `build`, `audit` all pass
 3. Editor smoke test: every row of the backend and frontend tables appears in Problems — as errors where listed — including the never-opened `smoke_closed.py`; then the smoke files are removed
 4. Size limits are errors in both: `max-function-length = 100` + `max-module-lines = 500` (backend), `max-lines-per-function` 100 + `max-lines` 500 (frontend)

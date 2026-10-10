@@ -7,7 +7,7 @@ Both apps start bare — add folders and libraries as features need them.
 ## Quick start
 
 ```bash
-cd backend && uv sync
+cd backend && uv sync && cp .env.example .env
 uv run uvicorn src.app.main:app --reload     # http://localhost:8000/docs
 
 cd ../frontend && nvm install && nvm use && pnpm install
@@ -17,7 +17,7 @@ pnpm run dev                                 # http://localhost:3000
 Once per clone:
 
 ```bash
-git config core.hooksPath .githooks   # pre-commit hook: runs the checks below, blocks failing commits
+git config core.hooksPath .githooks   # pre-commit hook: runs the checks below (except build and audits), blocks failing commits
 ```
 
 In VS Code: install the recommended extensions (Pylance and ESLint not wanted), then **Python: Select Interpreter → `backend/.venv`**. Problems then show Ruff, BasedPyright, Flake8 (function length), Pylint (file length), tach (layers), oxc and TypeScript — details in [`SETUP.md`](SETUP.md).
@@ -33,6 +33,7 @@ uv run flake8 src tests              # functions <= 100 lines
 uv run pylint src tests              # files <= 500 lines
 uv run tach check                    # router -> service -> repository
 uv run pytest                        # tests + feature structure
+uv run pip-audit                     # dependency vulnerabilities
 
 # frontend/
 pnpm run lint          # oxlint (type-aware, size limits)
@@ -51,7 +52,7 @@ In VS Code: **Tasks: Run Task → `check: all`** runs everything and lists every
 backend/src/app/
   main.py               # app factory: logger, routers, dishka
   core/                 # config, logger, container
-  features/<name>/      # router · service · repository · schemas · dependencies
+  features/<name>/      # __init__ · router · service · repository · schemas · dependencies
 frontend/src/app/       # Next.js App Router
 ```
 

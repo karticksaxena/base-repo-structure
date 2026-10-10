@@ -19,11 +19,11 @@ Always the latest stable, mutually compatible versions — never prereleases, ne
 1. **SERVER COMPONENTS BY DEFAULT** — `'use client'` only for state, effects, event handlers or browser APIs; keep client components small and at the leaves
 2. **FETCH ON THE SERVER** — call the backend from Server Components, Server Actions or Route Handlers
 3. **NO SECRETS IN `NEXT_PUBLIC_*`** — those ship to the browser
-4. **ZOD AT BOUNDARIES** — validate form input and backend responses
+4. **ZOD AT BOUNDARIES** (once Zod is added) — validate form input and backend responses
 5. **NO `any`, NO FLOATING PROMISES, EXPLICIT RETURN TYPES** — enforced by oxlint; components return `React.JSX.Element`
 6. **`next/link` AND `next/image`** — never raw `<a>` for internal links or raw `<img>`
-7. **SHADCN/UI FOR ALL UI** — never hand-roll a component shadcn provides; merge classes with `cn()`; theme through the CSS variables in `globals.css`
-8. **COPILOTKIT FOR AGENT UI** — chat and agent interactions go through CopilotKit over AG-UI; never a custom streaming client; never render agent-supplied HTML
+7. **SHADCN/UI FOR ALL UI** (once shadcn is initialised) — never hand-roll a component shadcn provides; merge classes with `cn()`; theme through the CSS variables in `globals.css`
+8. **COPILOTKIT FOR AGENT UI** (once agents are added) — chat and agent interactions go through CopilotKit over AG-UI; never a custom streaming client; never render agent-supplied HTML
 
 ## Structure
 
