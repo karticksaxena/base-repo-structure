@@ -1,12 +1,12 @@
 # Global Coding Rules
 
-Backend rules live in `backend/CLAUDE.md`, frontend rules in `frontend/CLAUDE.md`; each loads only for sessions working in that folder. Tooling setup for both: `SETUP.md`.
+The backend follows a NestJS-style feature structure that the linters enforce (`backend/CLAUDE.md` → NestJS-style structure). Backend rules live in `backend/CLAUDE.md`, frontend rules in `frontend/CLAUDE.md`; each loads only for sessions working in that folder. Tooling setup for both: `SETUP.md`.
 
 ## Core Rules
 
 1. **BE CRITICAL** — challenge bad ideas, point out flaws
 2. **PERFORMANCE FIRST** — analyze complexity before coding; avoid O(n²), use dict/set lookups, batch ops
-3. **MODULAR** — functions ≤100 lines, files ≤500 lines, enforced as errors by the linters (`SETUP.md`). Split the code; never raise a limit or disable the rule
+3. **MODULAR** — functions ≤100 lines, files ≤500 lines, enforced as errors by the linters (`SETUP.md`). Split the code; never raise a limit, disable a rule or loosen a structure check to make a failure go away
 4. **READ CONTEXT FIRST** — use tools before editing
 5. **ASK WHEN UNCLEAR** — never guess
 6. **EXPLAIN APPROACH** — describe plan before implementing

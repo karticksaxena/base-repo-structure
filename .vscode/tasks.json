@@ -26,7 +26,7 @@
       "problemMatcher": [
         {
           "owner": "ruff",
-          "source": "ruff",
+          "source": "ruff (task)",
           "fileLocation": ["relative", "${workspaceFolder}/backend"],
           "pattern": {
             "regexp": "^(.+?):(\\d+):(\\d+): (\\w+) (?:\\[\\*\\] )?(.*)$",
@@ -53,7 +53,7 @@
       "problemMatcher": [
         {
           "owner": "basedpyright",
-          "source": "basedpyright",
+          "source": "basedpyright (task)",
           "fileLocation": "absolute",
           "pattern": {
             "regexp": "^\\s+(/.+?):(\\d+):(\\d+) - (error|warning|information): (.*)$",
@@ -79,7 +79,7 @@
       "problemMatcher": [
         {
           "owner": "flake8",
-          "source": "flake8",
+          "source": "flake8 (task)",
           "fileLocation": ["relative", "${workspaceFolder}/backend"],
           "pattern": {
             "regexp": "^(.+?):(\\d+):(\\d+): (\\w+):? (.*)$",
@@ -105,7 +105,7 @@
       "problemMatcher": [
         {
           "owner": "pylint",
-          "source": "pylint",
+          "source": "pylint (task)",
           "fileLocation": ["relative", "${workspaceFolder}/backend"],
           "pattern": {
             "regexp": "^(.+?):(\\d+):(\\d+): (\\w+) (.*)$",
@@ -131,7 +131,7 @@
       "problemMatcher": [
         {
           "owner": "tach",
-          "source": "tach",
+          "source": "tach (task)",
           "fileLocation": ["relative", "${workspaceFolder}/backend"],
           "pattern": {
             "regexp": "^(?:\\[(?:FAIL|WARN)\\]|❌|⚠️?) (.+?):(\\d+): (.*)$",
@@ -168,7 +168,7 @@
       "problemMatcher": [
         {
           "owner": "pytest",
-          "source": "pytest",
+          "source": "pytest (task)",
           "fileLocation": "absolute",
           "pattern": {
             "regexp": "^(/.+?\\.py):(\\d+): (.*)$",
@@ -204,7 +204,7 @@
       "problemMatcher": [
         {
           "owner": "oxlint",
-          "source": "oxlint",
+          "source": "oxlint (task)",
           "fileLocation": ["relative", "${workspaceFolder}/frontend"],
           "pattern": {
             "regexp": "^(.+?):(\\d+):(\\d+): (.*) \\[(Error|Warning)/(.+)\\]$",
@@ -231,7 +231,8 @@
       "problemMatcher": [
         {
           "base": "$tsc",
-          "fileLocation": ["relative", "${workspaceFolder}/frontend"]
+          "fileLocation": ["relative", "${workspaceFolder}/frontend"],
+          "source": "tsc (task)"
         }
       ]
     },
