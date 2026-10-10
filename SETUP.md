@@ -885,13 +885,15 @@ Some settings only work from the user `settings.json`, because VS Code ignores _
 ```
 
 - `files.autoSave: "onFocusChange"` — a personal preference, so it stays out of the repo. Auto-save fires the workspace's format-on-save and fix-on-save when you click away from a file. It saves only files with **unsaved edits**: a file changed on disk by an agent isn't dirty, so nothing runs until you type in it or press Cmd+S.
-- `pylint.lintOnChange: true` — Pylint re-checks while you type. Its scope is `machine`, so a workspace value is ignored; without it Pylint checks on open and save only.
+- `pylint.lintOnChange: true` — Pylint re-checks while you type. Its scope is `machine`, so a workspace value is ignored; without it Pylint checks on open and save only. Pylint reads it only when its server starts: after adding it run **Pylint: Restart Server** (or reload the window) — verified in Output → **Pylint**: `"lintOnChange": true`, then every unsaved edit triggers a lint run.
 
 How the agent edits it:
 
 - The file is JSON **with comments** and holds the user's other settings: add or change only these keys with a targeted edit — never rewrite the file or drop entries.
 - Remove these if present, because they fight the repo's rules: `ruff.lint.select`, `ruff.lineLength`, `ruff.configuration` (Ruff's default `configurationPreference: "editorFirst"` lets them override `pyproject.toml`), and any `python.analysis.*` (Pylance only).
 - Language blocks (`[python]`, `[typescript]`, …) may stay; the workspace file sets them anyway.
+
+Restarts are a setup-time thing only: after changing user settings or (un)installing extensions. During normal work every checker updates live; the only other time is after an agent or `git` deletes or rewrites many files behind the editor (see [Troubleshooting](#troubleshooting)).
 
 **Trust the folder** (user, once): when VS Code asks _"Do you trust the authors of the files in this folder?"_, choose **Trust**. In Restricted Mode, VS Code ignores `ruff.interpreter` and `oxc.path.tsgolint` from the workspace file (both are listed under `restrictedConfigurations`), so Ruff falls back to a bundled copy and oxlint loses its type-aware rules.
 
