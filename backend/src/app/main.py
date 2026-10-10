@@ -1,8 +1,27 @@
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
+from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI
 
-app: FastAPI = FastAPI(title="AI Auto Job Applier", version="0.1.0")
+from src.app.core.container import create_container
+from src.app.core.logger import setup_logger
+from src.app.features.items.router import router as items_router
 
 
-@app.get("/")
-async def root() -> dict[str, str]:
-    return {"message": "Hello World"}
+def create_app() -> FastAPI:
+    setup_logger()
+    container = create_container()
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+        yield
+        await container.close()
+
+    app = FastAPI(title="Backend", lifespan=lifespan)
+    app.include_router(items_router)
+    setup_dishka(container, app)
+    return app
+
+
+app = create_app()
