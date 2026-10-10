@@ -749,24 +749,25 @@ Why each line (setting names checked in each extension's `package.json`):
 
 ### `.vscode/tasks.json` — manual only
 
-| Task                                | Command (cwd)                                                                               | Problem matcher                      |
-| ----------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `backend: dev`                      | `uv run uvicorn src.app.main:app --reload` (backend)                                        | —                                    |
-| `backend: ruff`                     | `uv run ruff check --output-format concise src tests`                                       | `ruff`                               |
-| `backend: basedpyright`             | `uv run basedpyright`                                                                       | `basedpyright` (absolute paths)      |
-| `backend: function length (flake8)` | `uv run flake8 src tests`                                                                   | `flake8`                             |
-| `backend: file length (pylint)`     | `uv run pylint src tests --score=n --msg-template='{path}:{line}:{column}: {msg_id} {msg}'` | `pylint`                             |
-| `backend: structure (tach)`         | `uv run tach check`                                                                         | `tach` (`[FAIL] file:line: message`) |
-| `backend: format`                   | `uv run ruff format --check src tests`                                                      | —                                    |
-| `backend: test`                     | `uv run pytest --tb=line`                                                                   | `pytest` (failing assertion line)    |
-| `frontend: dev`                     | `pnpm run dev` (frontend)                                                                   | —                                    |
-| `frontend: lint`                    | `pnpm run --silent lint --format unix`                                                      | `oxlint`                             |
-| `frontend: typecheck`               | `pnpm run typecheck`                                                                        | `$tsc`, `fileLocation` = `frontend/` |
-| `frontend: format` / `test`         | `pnpm run format:check` / `pnpm run test`                                                   | —                                    |
-| **`check: all`**                    | every task above except `dev`, in parallel                                                  | each task's own                      |
+| Task                                | Command (cwd)                                                                               | Problem matcher                                                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `backend: dev`                      | `uv run uvicorn src.app.main:app --reload` (backend)                                        | —                                                                                                 |
+| `backend: ruff`                     | `uv run ruff check --output-format concise src tests`                                       | `ruff`                                                                                            |
+| `backend: basedpyright`             | `uv run basedpyright`                                                                       | `basedpyright` (absolute paths)                                                                   |
+| `backend: function length (flake8)` | `uv run flake8 --color never src tests`                                                     | `flake8`                                                                                          |
+| `backend: file length (pylint)`     | `uv run pylint src tests --score=n --msg-template='{path}:{line}:{column}: {msg_id} {msg}'` | `pylint`                                                                                          |
+| `backend: structure (tach)`         | `uv run tach check`                                                                         | `tach` (`[FAIL] file:line:` when piped, `❌ file:line:` in a terminal — the pattern accepts both) |
+| `backend: format`                   | `uv run ruff format --check src tests`                                                      | —                                                                                                 |
+| `backend: test`                     | `uv run pytest --tb=line`                                                                   | `pytest` (failing assertion line)                                                                 |
+| `frontend: dev`                     | `pnpm run dev` (frontend)                                                                   | —                                                                                                 |
+| `frontend: lint`                    | `pnpm run --silent lint --format unix`                                                      | `oxlint`                                                                                          |
+| `frontend: typecheck`               | `pnpm run typecheck`                                                                        | `$tsc`, `fileLocation` = `frontend/`                                                              |
+| `frontend: format` / `test`         | `pnpm run format:check` / `pnpm run test`                                                   | —                                                                                                 |
+| **`check: all`**                    | every task above except `dev`, in parallel                                                  | each task's own                                                                                   |
 
-Run **Tasks: Run Task → `check: all`** for a full-workspace scan: every file's problems land in the Problems panel, one owner per tool, so a rerun of one task replaces only its own entries. Task problems stay until that task runs again.
+Run **Tasks: Run Task → `check: all`** for a full-workspace scan: every file's problems land in the Problems panel (verified: entries from `ruff`, `basedpyright`, `flake8`, `pylint`, `tach`, `pytest`, `oxlint` and `ts` all appeared), one owner per tool, so a rerun of one task replaces only its own entries. Task problems stay until that task runs again.
 
+- Every task sets `NO_COLOR=1` (and the BasedPyright task also `FORCE_COLOR=0`, which BasedPyright needs; Ruff reads any `FORCE_COLOR` as "on", so it isn't global), and flake8 gets `--color never`. VS Code runs tasks in a terminal, where these tools print colour codes otherwise, and the problem patterns would then match nothing (verified by running each task command in a pseudo-terminal against real violations).
 - `check: all` runs its tasks **in parallel** (one terminal each). Keep it that way: with `"dependsOrder": "sequence"` VS Code stops at the first task that fails, and the remaining tools never report.
 - Agents: the Claude Code `getDiagnostics` tool returns extension diagnostics only, not task problem-matcher results. Ask the user which sources appear in Problems after running `check: all`.
 - Never add `"runOn": "folderOpen"` (it opens terminals on every reload) unless the user asks.

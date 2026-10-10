@@ -14,6 +14,14 @@ cd ../frontend && nvm install && nvm use && pnpm install
 pnpm run dev                                 # http://localhost:3000
 ```
 
+Once per clone:
+
+```bash
+git config core.hooksPath .githooks   # pre-commit hook: runs the checks below, blocks failing commits
+```
+
+In VS Code: install the recommended extensions (Pylance and ESLint not wanted), then **Python: Select Interpreter → `backend/.venv`**. Problems then show Ruff, BasedPyright, Flake8 (function length), Pylint (file length), tach (layers), oxc and TypeScript — details in [`SETUP.md`](SETUP.md).
+
 ## Checks
 
 ```bash

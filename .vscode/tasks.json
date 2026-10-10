@@ -6,7 +6,10 @@
       "type": "shell",
       "command": "uv run uvicorn src.app.main:app --reload",
       "options": {
-        "cwd": "${workspaceFolder}/backend"
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": []
     },
@@ -15,7 +18,10 @@
       "type": "shell",
       "command": "uv run ruff check --output-format concise src tests",
       "options": {
-        "cwd": "${workspaceFolder}/backend"
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": [
         {
@@ -38,7 +44,11 @@
       "type": "shell",
       "command": "uv run basedpyright",
       "options": {
-        "cwd": "${workspaceFolder}/backend"
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1",
+          "FORCE_COLOR": "0"
+        }
       },
       "problemMatcher": [
         {
@@ -59,9 +69,12 @@
     {
       "label": "backend: function length (flake8)",
       "type": "shell",
-      "command": "uv run flake8 src tests",
+      "command": "uv run flake8 --color never src tests",
       "options": {
-        "cwd": "${workspaceFolder}/backend"
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": [
         {
@@ -84,7 +97,10 @@
       "type": "shell",
       "command": "uv run pylint src tests --score=n --msg-template='{path}:{line}:{column}: {msg_id} {msg}'",
       "options": {
-        "cwd": "${workspaceFolder}/backend"
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": [
         {
@@ -107,7 +123,10 @@
       "type": "shell",
       "command": "uv run tach check",
       "options": {
-        "cwd": "${workspaceFolder}/backend"
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": [
         {
@@ -115,7 +134,7 @@
           "source": "tach",
           "fileLocation": ["relative", "${workspaceFolder}/backend"],
           "pattern": {
-            "regexp": "^\\[(?:FAIL|WARN)\\] (.+?):(\\d+): (.*)$",
+            "regexp": "^(?:\\[(?:FAIL|WARN)\\]|❌|⚠️?) (.+?):(\\d+): (.*)$",
             "file": 1,
             "line": 2,
             "message": 3
@@ -129,7 +148,10 @@
       "type": "shell",
       "command": "uv run ruff format --check src tests",
       "options": {
-        "cwd": "${workspaceFolder}/backend"
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": []
     },
@@ -138,7 +160,10 @@
       "type": "shell",
       "command": "uv run pytest --tb=line",
       "options": {
-        "cwd": "${workspaceFolder}/backend"
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": [
         {
@@ -159,7 +184,10 @@
       "type": "shell",
       "command": "pnpm run dev",
       "options": {
-        "cwd": "${workspaceFolder}/frontend"
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": []
     },
@@ -168,7 +196,10 @@
       "type": "shell",
       "command": "pnpm run --silent lint --format unix",
       "options": {
-        "cwd": "${workspaceFolder}/frontend"
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": [
         {
@@ -192,7 +223,10 @@
       "type": "shell",
       "command": "pnpm run typecheck",
       "options": {
-        "cwd": "${workspaceFolder}/frontend"
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": [
         {
@@ -206,7 +240,10 @@
       "type": "shell",
       "command": "pnpm run format:check",
       "options": {
-        "cwd": "${workspaceFolder}/frontend"
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": []
     },
@@ -215,7 +252,10 @@
       "type": "shell",
       "command": "pnpm run test",
       "options": {
-        "cwd": "${workspaceFolder}/frontend"
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NO_COLOR": "1"
+        }
       },
       "problemMatcher": []
     },
