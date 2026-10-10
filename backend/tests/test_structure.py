@@ -1,4 +1,8 @@
-"""NestJS-style feature modules: every folder in src/app/features/ has the same files."""
+"""NestJS-style feature modules: every folder in src/app/features/ has the same files.
+
+Import rules (router -> service -> repository; another feature only through its service) are
+checked by tach, from each feature's tach.domain.toml.
+"""
 
 from pathlib import Path
 
@@ -12,6 +16,7 @@ REQUIRED_FILES = (
     "repository.py",
     "schemas.py",
     "dependencies.py",
+    "tach.domain.toml",
 )
 FEATURES = sorted(p for p in FEATURES_DIR.iterdir() if p.is_dir() and p.name != "__pycache__")
 

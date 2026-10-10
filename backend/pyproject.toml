@@ -57,6 +57,17 @@ select = [
   "FAST",  # FastAPI
   "ASYNC", # async pitfalls
   "T20",   # no print()
+  "PT",    # pytest style
+  "RUF",   # Ruff-specific (incl. RUF100: unused noqa)
+  "PIE",   # misc. lints
+  "PERF",  # performance anti-patterns
+  "FURB",  # refurb: modern idioms
+  "DTZ",   # timezone-naive datetimes
+  "LOG",   # logging misuse
+  "PLE",   # pylint errors
+  "PLW",   # pylint warnings
+  "ARG",   # unused arguments
+  "C90",   # cyclomatic complexity (max-complexity below)
 ]
 unfixable = ["F841"] # never auto-delete unused variables
 
@@ -70,6 +81,9 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "loguru".msg = "Import `logger` from `src.app.core.logger`."
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

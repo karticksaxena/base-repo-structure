@@ -37,7 +37,8 @@ src/
   lib/             # cn(), API client, shared Zod schemas
 ```
 
-- No cross-feature imports — share through `components/` or `lib/`
+- Next.js itself enforces the `app/` file conventions and server/client boundaries (build errors; live in the editor via its TypeScript plugin); oxlint enforces `next/link`, `next/image` and no import cycles
+- No cross-feature imports — share through `components/` or `lib/` (not checked by a tool — keep it by hand)
 - Import with the `@/` alias
 
 ## Tests

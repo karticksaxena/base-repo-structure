@@ -1,0 +1,34 @@
+# Layer rules for this feature — copied with the folder when adding a feature.
+# Paths are relative to this feature; "//" paths are absolute.
+# NestJS-style: router -> service -> repository; another feature only through its
+# service (and its schemas for DTO types).
+
+[[modules]]
+path = "router"
+depends_on = [
+  "service",
+  "schemas",
+  "//src.app.features.*.service",
+  "//src.app.features.*.schemas",
+]
+
+[[modules]]
+path = "service"
+depends_on = [
+  "repository",
+  "schemas",
+  "//src.app.features.*.service",
+  "//src.app.features.*.schemas",
+]
+
+[[modules]]
+path = "repository"
+depends_on = ["schemas"]
+
+[[modules]]
+path = "schemas"
+depends_on = []
+
+[[modules]]
+path = "dependencies"
+depends_on = ["repository", "service"]

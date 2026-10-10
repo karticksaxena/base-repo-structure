@@ -2,7 +2,7 @@
 
 ## Dev tooling
 
-Follow **`../SETUP.md`**. Lint, type, size and test rules live in `pyproject.toml`; layer rules in `tach.toml` — never in `.vscode/settings.json`, and never in a separate `pyrightconfig.json`, `.flake8` or `.pylintrc`.
+Follow **`../SETUP.md`**. Lint, type, size and test rules live in `pyproject.toml`; layer rules in `tach.toml` (app level) and each feature's `tach.domain.toml` — never in `.vscode/settings.json`, and never in a separate `pyrightconfig.json`, `.flake8` or `.pylintrc`.
 
 ## Stack
 
@@ -25,20 +25,22 @@ src/app/
     repository.py         # data access               (DB/Redis)
     schemas.py            # Pydantic request/response (Nest DTOs)
     dependencies.py       # dishka Provider           (Nest module providers)
+    tach.domain.toml      # this feature's layer rules (copied with the folder)
 ```
 
-| Rule                                                                            | Enforced by                       | Shows up                                                                              |
-| ------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------- |
-| Every feature folder has all six files (incl. `__init__.py`)                    | `tests/test_structure.py`         | `uv run pytest`, task `backend: test`, pre-commit hook                                |
-| Imports go router → service → repository only — no skipping, nothing upward     | tach (`tach.toml`)                | live in open files (source `tach`), task `backend: structure (tach)`, pre-commit hook |
-| `core/` never imports a feature (only `container.py` imports feature providers) | tach                              | same                                                                                  |
-| Every file is one of the files above (`root_module = "forbid"`)                 | tach                              | same                                                                                  |
-| No import cycles                                                                | BasedPyright `reportImportCycles` | live, whole workspace                                                                 |
+| Rule                                                                                                         | Enforced by                       | Shows up                                                                              |
+| ------------------------------------------------------------------------------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------- |
+| Every feature folder has all seven files (incl. `__init__.py`, `tach.domain.toml`)                           | `tests/test_structure.py`         | `uv run pytest`, task `backend: test`, pre-commit hook                                |
+| Imports go router → service → repository only — no skipping, nothing upward                                  | tach (`tach.domain.toml`)         | live in open files (source `tach`), task `backend: structure (tach)`, pre-commit hook |
+| Another feature is used only through its service (or schemas) — never its repository, router or dependencies | tach (`tach.domain.toml`)         | same                                                                                  |
+| `core/` never imports a feature (only `container.py` imports feature providers)                              | tach                              | same                                                                                  |
+| Every file is one of the files above (`root_module = "forbid"`)                                              | tach                              | same                                                                                  |
+| No import cycles                                                                                             | BasedPyright `reportImportCycles` | live, whole workspace                                                                 |
 
-- Add a feature by copying `features/items/`, then register its router in `main.py` and its provider in `core/container.py`
-- When a check fails, change the code to fit the structure — never loosen `tach.toml`, the structure test or a lint rule to make it pass. A genuinely new kind of file (e.g. `models.py` once a DB lands) gets its own `tach.toml` module entry — ask first
+- Add a feature by copying `features/items/` (its `tach.domain.toml` comes along), then register its router in `main.py` and its provider in `core/container.py`
+- When a check fails, change the code to fit the structure — never loosen `tach.toml`, a `tach.domain.toml`, the structure test or a lint rule to make it pass. A genuinely new kind of file (e.g. `models.py` once a DB lands) gets its own `tach.toml` module entry — ask first
 - After editing files, trust `uv run tach check` over the editor: the Tach extension doesn't see disk changes until the file is reopened or **Tach: Restart Server** runs
-- Not caught by any tool, so keep it by hand: another feature is used only through its service (a service never imports another feature's repository — tach's `*` globs can't say "same feature"); routers hold no business logic
+- Not caught by any tool, so keep it by hand: routers hold no business logic
 
 ## Rules
 
