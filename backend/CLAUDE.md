@@ -37,6 +37,7 @@ src/app/
 
 - Add a feature by copying `features/items/`, then register its router in `main.py` and its provider in `core/container.py`
 - When a check fails, change the code to fit the structure — never loosen `tach.toml`, the structure test or a lint rule to make it pass. A genuinely new kind of file (e.g. `models.py` once a DB lands) gets its own `tach.toml` module entry — ask first
+- After editing files, trust `uv run tach check` over the editor: the Tach extension doesn't see disk changes until the file is reopened or **Tach: Restart Server** runs
 - Not caught by any tool, so keep it by hand: a service never imports another feature's repository; routers hold no business logic
 
 ## Rules
