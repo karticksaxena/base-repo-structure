@@ -20,7 +20,7 @@ Once per clone:
 git config core.hooksPath .githooks   # pre-commit hook: runs the checks below (except build and audits), blocks failing commits
 ```
 
-In VS Code: install the recommended extensions (Pylance and ESLint not wanted), then **Python: Select Interpreter → `backend/.venv`**. Problems then show Ruff, BasedPyright, Flake8 (function length), Pylint (file length), tach (layers), oxc and TypeScript — details in [`SETUP.md`](SETUP.md).
+In VS Code: install the recommended extensions (Pylance and ESLint not wanted), then **Python: Select Interpreter → `backend/.venv`** and, with a `.tsx` file open, **TypeScript: Select TypeScript Version → Use Workspace Version** (Next.js plugin). Problems then show Ruff, BasedPyright, Flake8 (function length), Pylint (file length), tach (structure), oxc, TypeScript and Next.js rules — details in [`SETUP.md`](SETUP.md).
 
 ## Checks
 
@@ -44,7 +44,7 @@ pnpm run build         # Turbopack
 pnpm run audit         # dependency vulnerabilities
 ```
 
-In VS Code: **Tasks: Run Task → `check: all`** runs everything and lists every file's problems in the Problems panel.
+In VS Code: **Tasks: Run Task → `check: all`** runs every check except the audits and lists every file's problems in the Problems panel.
 
 ## Layout
 
@@ -56,6 +56,8 @@ backend/src/app/
   features/<name>/      # __init__ · router · service · repository · schemas · dependencies · tach.domain.toml
 frontend/src/app/       # Next.js App Router
 ```
+
+The backend follows a NestJS-style structure enforced by tach and a structure test — the rules are in [`backend/CLAUDE.md`](backend/CLAUDE.md#nestjs-style-structure-enforced--the-linters-fail-on-violations).
 
 ## Docs
 
