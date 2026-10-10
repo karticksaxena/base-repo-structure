@@ -789,7 +789,6 @@ Recommends the nine extensions above; `unwantedRecommendations`: `ms-python.vsco
   "pylint.interpreter": ["${workspaceFolder}/backend/.venv/bin/python"],
   "pylint.importStrategy": "fromEnvironment",
   "pylint.cwd": "${workspaceFolder}/backend",
-  "pylint.lintOnChange": true,
   "tach.importStrategy": "fromEnvironment",
   "tach.configuration": "backend/tach.toml",
   "pylint.severity": {
@@ -833,7 +832,154 @@ Why each line (setting names checked in each extension's `package.json`):
 
 - `npm.autoDetect: "off"` — hides VS Code's auto-generated npm script tasks so the task list only shows this repo's tasks.
 - `python.languageServer: "None"` — turns off Pylance's language server; BasedPyright provides types instead.
-- `pylint.lintOnChange: true` — Pylint re-checks while you type (default: on save only).
+- `oxc.requireConfig: true` — oxlint runs only where a `.oxlintrc.json` exists (`frontend/`), so other files get no default-rule noise.
+- `editor.formatOnSave` + per-language `defaultFormatter` — every file type with a formatter is formatted on save: Python by Ruff, TS/JS/JSON/CSS/Markdown/YAML by Prettier, TOML by Even Better TOML. Files without a formatter (`.gitignore`, `.nvmrc`) are left alone.
+- `basedpyright.analysis.diagnosticMode: "workspace"` — type errors for **every** file, opened or not (verified: an unopened file's error appears in Problems). `configFilePath` points BasedPyright at `backend/pyproject.toml`.
+- `*.interpreter` + `importStrategy: "fromEnvironment"` — Ruff, Flake8 and Pylint run the versions in `backend/.venv` (the same ones as the CLI, with the `flake8-max-function-length` / `flake8-pyproject` plugins); the bundled copies don't have the plugins.
+- `flake8.cwd` / `pylint.cwd` — both read `backend/pyproject.toml` from their working directory. Ruff needs no `cwd`: it finds the nearest `pyproject.toml` per file (`ruff.cwd` doesn't exist).
+- `tach.*` — the Tach extension runs `python -m tach server -c <configuration>` with the repo root as working directory, using the interpreter selected in VS Code (`backend/.venv`). Don't set `tach.interpreter`: at startup the extension passes it unexpanded to the Python extension, `${workspaceFolder}/…` resolves to nothing (`Python version undefined.undefined is not supported`) and the server never starts. `configuration` is passed as-is, so it is relative to the repo root.
+- `pylint.severity.convention: "Error"` — `C0302` is a _convention_ message, which the extension shows as Information by default.
+- `js/ts.tsserver.experimental.enableProjectDiagnostics` — TypeScript errors for every file of a project once one of its files was opened (experimental; `pnpm run typecheck` is always accurate).
+- `oxc.path.tsgolint` — the Oxc language server runs from the repo root, which has no `node_modules`, so it can't find the type-aware engine on its own.
+
+### `.vscode/tasks.json` — manual only
+
+| Task                                 | Command (cwd)                                                                               | Problem matcher                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `backend: dev`                       | `uv run uvicorn src.app.main:app --reload` (backend)                                        | —                                                                                                 |
+| `backend: ruff`                      | `uv run ruff check --output-format concise src tests`                                       | `ruff`                                                                                            |
+| `backend: basedpyright`              | `uv run basedpyright`                                                                       | `basedpyright` (absolute paths)                                                                   |
+| `backend: function length (flake8)`  | `uv run flake8 --color never src tests`                                                     | `flake8`                                                                                          |
+| `backend: file length (pylint)`      | `uv run pylint src tests --score=n --msg-template='{path}:{line}:{column}: {msg_id} {msg}'` | `pylint`                                                                                          |
+| `backend: structure (tach)`          | `uv run tach check`                                                                         | `tach` (`[FAIL] file:line:` when piped, `❌ file:line:` in a terminal — the pattern accepts both) |
+| `backend: format`                    | `uv run ruff format --check src tests`                                                      | —                                                                                                 |
+| `backend: test`                      | `uv run pytest --tb=line`                                                                   | `pytest` (failing assertion line)                                                                 |
+| `frontend: dev`                      | `pnpm run dev` (frontend)                                                                   | —                                                                                                 |
+| `frontend: lint`                     | `pnpm run --silent lint --format unix`                                                      | `oxlint`                                                                                          |
+| `frontend: typecheck`                | `pnpm run typecheck`                                                                        | `$tsc`, `fileLocation` = `frontend/`                                                              |
+| `frontend: format` / `test`          | `pnpm run format:check` / `pnpm run test`                                                   | —                                                                                                 |
+| `backend: audit` / `frontend: audit` | `uv run pip-audit --progress-spinner off` / `pnpm run audit`                                | — (not part of `check: all`: they report vulnerable packages, not file problems)                  |
+| **`check: all`**                     | every task above except `dev`, in parallel                                                  | each task's own                                                                                   |
+
+Run **Tasks: Run Task → `check: all`** for a full-workspace scan: every file's problems land in the Problems panel (verified: entries from all eight tools appeared), one owner per tool, so a rerun of one task replaces only its own entries. Task problems stay until that task runs again.
+
+- Task entries carry the source `<tool> (task)` (e.g. `tach (task)`); live editor entries carry the plain tool name (`tach`). A task entry is a snapshot of its last run: it stays — even for a file that was fixed or deleted — until that task runs again, so rerun `check: all` after big changes. The Tach extension re-checks a file only when it is opened or saved: its server ignores edits (`Received unknown notification: textDocument/didChange` in Output → **Tach**), so after an agent or `git` changes a file on disk its old errors stay. Clear them with **Tach: Restart Server** (or close and reopen the file).
+- Every non-composite task sets `NO_COLOR=1` (and the BasedPyright task also `FORCE_COLOR=0`, which BasedPyright needs; Ruff reads any `FORCE_COLOR` as "on", so it isn't global), and flake8 gets `--color never`. VS Code runs tasks in a terminal, where these tools print colour codes otherwise, and the problem patterns would then match nothing (verified by running each task command in a pseudo-terminal against real violations).
+- `check: all` runs its tasks **in parallel** (one terminal each). Keep it that way: with `"dependsOrder": "sequence"` VS Code stops at the first task that fails, and the remaining tools never report.
+- Agents: the Claude Code `getDiagnostics` tool returns extension diagnostics only, not task problem-matcher results. Ask the user which sources appear in Problems after running `check: all`.
+- Never add `"runOn": "folderOpen"` (it opens terminals on every reload) unless the user asks.
+
+---
+
+## User settings (once per machine)
+
+Some settings only work from the user `settings.json`, because VS Code ignores _machine_-scoped settings in a workspace file (scopes checked in each extension's `package.json`). The agent may add these entries itself — tell the user what was added.
+
+`~/Library/Application Support/Code/User/settings.json` (Cursor: `.../Cursor/User/settings.json`):
+
+```json
+{
+  "files.autoSave": "onFocusChange",
+  "pylint.lintOnChange": true
+}
+```
+
+- `files.autoSave: "onFocusChange"` — a personal preference, so it stays out of the repo. Auto-save fires the workspace's format-on-save and fix-on-save when you click away from a file. It saves only files with **unsaved edits**: a file changed on disk by an agent isn't dirty, so nothing runs until you type in it or press Cmd+S.
+- `pylint.lintOnChange: true` — Pylint re-checks while you type. Its scope is `machine`, so a workspace value is ignored; without it Pylint checks on open and save only.
+
+How the agent edits it:
+
+- The file is JSON **with comments** and holds the user's other settings: add or change only these keys with a targeted edit — never rewrite the file or drop entries.
+- Remove these if present, because they fight the repo's rules: `ruff.lint.select`, `ruff.lineLength`, `ruff.configuration` (Ruff's default `configurationPreference: "editorFirst"` lets them override `pyproject.toml`), and any `python.analysis.*` (Pylance only).
+- Language blocks (`[python]`, `[typescript]`, …) may stay; the workspace file sets them anyway.
+
+**Trust the folder** (user, once): when VS Code asks _"Do you trust the authors of the files in this folder?"_, choose **Trust**. In Restricted Mode, VS Code ignores `ruff.interpreter` and `oxc.path.tsgolint` from the workspace file (both are listed under `restrictedConfigurations`), so Ruff falls back to a bundled copy and oxlint loses its type-aware rules.
+
+---
+
+## Verify CLI (frontend)
+
+```bash
+cd frontend
+pnpm run lint && pnpm run typecheck && pnpm run format:check
+pnpm run test && pnpm run build && pnpm run audit
+```
+
+---
+
+## Root `.gitignore`
+
+One file at the repo root covers both packages (no `frontend/.gitignore`). Key entries: `__pycache__/`, `.venv/`, `.pytest_cache/`, `.ruff_cache/`, `node_modules/`, `.next/`, `next-env.d.ts`, `*.tsbuildinfo`, `coverage/`, `.env` / `.env.*` with `!.env.example`, and `.vscode/*` with `!.vscode/extensions.json`, `!.vscode/settings.json`, `!.vscode/tasks.json`. Without `node_modules/` ignored, oxlint lints `node_modules` and appears to hang.
+
+---
+
+## Workspace settings (commit `.vscode/`)
+
+### `.vscode/extensions.json`
+
+Recommends the nine extensions above; `unwantedRecommendations`: `ms-python.vscode-pylance`, `dbaeumer.vscode-eslint`.
+
+### `.vscode/settings.json`
+
+```json
+{
+  "npm.autoDetect": "off",
+  "editor.formatOnSave": true,
+
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+  "python.languageServer": "None",
+  "basedpyright.analysis.configFilePath": "${workspaceFolder}/backend",
+  "basedpyright.analysis.diagnosticMode": "workspace",
+  "ruff.interpreter": ["${workspaceFolder}/backend/.venv/bin/python"],
+  "flake8.interpreter": ["${workspaceFolder}/backend/.venv/bin/python"],
+  "flake8.importStrategy": "fromEnvironment",
+  "flake8.cwd": "${workspaceFolder}/backend",
+  "pylint.interpreter": ["${workspaceFolder}/backend/.venv/bin/python"],
+  "pylint.importStrategy": "fromEnvironment",
+  "pylint.cwd": "${workspaceFolder}/backend",
+  "tach.importStrategy": "fromEnvironment",
+  "tach.configuration": "backend/tach.toml",
+  "pylint.severity": {
+    "convention": "Error",
+    "error": "Error",
+    "fatal": "Error",
+    "refactor": "Hint",
+    "warning": "Warning",
+    "info": "Information"
+  },
+
+  "js/ts.tsdk.path": "frontend/node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "js/ts.tsserver.experimental.enableProjectDiagnostics": true,
+  "oxc.requireConfig": true,
+  "oxc.typeAware": true,
+  "oxc.path.tsgolint": "frontend/node_modules/.bin/tsgolint",
+
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "always",
+      "source.organizeImports": "always"
+    }
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.oxc": "always",
+      "source.organizeImports": "always"
+    }
+  },
+  "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[toml]": { "editor.defaultFormatter": "tamasfe.even-better-toml" }
+}
+```
+
+The committed file repeats the `[typescript]` block for `[typescriptreact]`, `[javascript]`, `[javascriptreact]`, and the `[json]` line for `[jsonc]`, `[css]`, `[markdown]`, `[yaml]`.
+
+Why each line (setting names checked in each extension's `package.json`):
+
+- `npm.autoDetect: "off"` — hides VS Code's auto-generated npm script tasks so the task list only shows this repo's tasks.
+- `python.languageServer: "None"` — turns off Pylance's language server; BasedPyright provides types instead.
 - `oxc.requireConfig: true` — oxlint runs only where a `.oxlintrc.json` exists (`frontend/`), so other files get no default-rule noise.
 - `editor.formatOnSave` + per-language `defaultFormatter` — every file type with a formatter is formatted on save: Python by Ruff, TS/JS/JSON/CSS/Markdown/YAML by Prettier, TOML by Even Better TOML. Files without a formatter (`.gitignore`, `.nvmrc`) are left alone.
 - `basedpyright.analysis.diagnosticMode: "workspace"` — type errors for **every** file, opened or not (verified: an unopened file's error appears in Problems). `configFilePath` points BasedPyright at `backend/pyproject.toml`.
@@ -909,7 +1055,7 @@ An agent can't see VS Code by itself. Two channels exist:
 
 ### Step 0 — editor ready (user)
 
-One message to the user covering: install the extensions ([Required extensions](#required-vs-code-extensions)) → **Developer: Reload Window** → **Python: Select Interpreter → `backend/.venv/bin/python`** → **TypeScript: Select TypeScript Version → Use Workspace Version** (turns on the Next.js TypeScript plugin; VS Code needs this approval once and settings can't give it) → `/ide` in Claude Code. The Python extensions start only when a `.py` file is open: their activation looks for `pyproject.toml` / `*.py` at the **workspace root**, and this repo keeps them in `backend/`. So a Python file must be open once per session; BasedPyright then scans the whole workspace.
+One message to the user covering: **trust the folder** when VS Code asks → install the extensions ([Required extensions](#required-vs-code-extensions)) → **Developer: Reload Window** → **Python: Select Interpreter → `backend/.venv/bin/python`** → **TypeScript: Select TypeScript Version → Use Workspace Version** (turns on the Next.js TypeScript plugin; VS Code needs this approval once and settings can't give it) → `/ide` in Claude Code. The Python extensions start only when a `.py` file is open: their activation looks for `pyproject.toml` / `*.py` at the **workspace root**, and this repo keeps them in `backend/`. So a Python file must be open once per session; BasedPyright then scans the whole workspace.
 
 ### Step 1 — create every smoke file (agent)
 
@@ -1055,6 +1201,8 @@ There is no CI workflow in this template.
 | `pnpm run lint` hangs for minutes                                                                   | oxlint is linting `node_modules` — missing `.gitignore` / `ignorePatterns`                                                                                                                                                                                                                                                                                                         |
 | Editor shows only a few oxc **warnings** while `pnpm run lint` shows errors                         | `frontend/.oxlintrc.json` contains `options.typeAware` — not allowed in nested configs; remove it, then **Oxc: Restart Server**                                                                                                                                                                                                                                                    |
 | Editor misses `no-floating-promises` / `no-unsafe-*`                                                | Set `"oxc.path.tsgolint": "frontend/node_modules/.bin/tsgolint"`, then Reload Window                                                                                                                                                                                                                                                                                               |
+| Ruff or oxlint seem to use defaults / type-aware rules missing although settings look right         | The folder is in **Restricted Mode** — VS Code ignores `ruff.interpreter` and `oxc.path.tsgolint` there. Trust the folder (status bar or **Workspaces: Manage Workspace Trust**)                                                                                                                                                                                                   |
+| Pylint only updates on save                                                                         | `pylint.lintOnChange` is machine-scoped — it must be in the user `settings.json`, not `.vscode/settings.json`                                                                                                                                                                                                                                                                      |
 | **TypeScript 7** (`typescript@latest`)                                                              | Kept on **TypeScript 6**: TypeScript 7 passes `tsc`, oxlint and `next build`, but ships no `lib/tsserver.js`, so `js/ts.tsdk.path` and the project-wide diagnostics this repo relies on don't work with it (VS Code needs the separate `TypeScriptTeam.native-preview` extension for now). Move to 7 once VS Code's built-in TypeScript supports it with project diagnostics       |
 | TS errors only in the editor, e.g. `Cannot find namespace 'React'` in a `.tsx`                      | Another file has the same base name (`x.ts` next to `x.tsx`) — TypeScript drops one from the project; rename one. `pnpm exec tsc --noEmit --listFilesOnly` shows which files are in                                                                                                                                                                                                |
 | Vitest: `The plugin "vite-tsconfig-paths" is detected`                                              | `pnpm remove vite-tsconfig-paths`; use `resolve: { tsconfigPaths: true }` in `vitest.config.mts`                                                                                                                                                                                                                                                                                   |
@@ -1070,7 +1218,7 @@ There is no CI workflow in this template.
 - [ ] **1.** Copy this repo (or follow Backend 1–8 + Frontend)
 - [ ] **2.** `cd backend && uv sync`; `cd frontend && pnpm install`; `nvm install && nvm use` in `frontend/`
 - [ ] **3.** Install the VS Code extensions, uninstall Pylance → Reload Window → **Select Interpreter** → `backend/.venv`
-- [ ] **4.** User settings: `files.autoSave: "onFocusChange"`
+- [ ] **4.** User settings: `files.autoSave: "onFocusChange"`, `pylint.lintOnChange: true`; trust the folder
 - [ ] **4b.** `git config core.hooksPath .githooks` (pre-commit hook)
 - [ ] **5.** `cp backend/.env.example backend/.env`; create `frontend/.env.local` for frontend secrets (never commit either)
 - [ ] **6.** Run [Verify CLI](#verify-cli) — all green

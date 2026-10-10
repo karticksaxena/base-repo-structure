@@ -13,7 +13,6 @@
   "pylint.interpreter": ["${workspaceFolder}/backend/.venv/bin/python"],
   "pylint.importStrategy": "fromEnvironment",
   "pylint.cwd": "${workspaceFolder}/backend",
-  "pylint.lintOnChange": true,
   "tach.importStrategy": "fromEnvironment",
   "tach.configuration": "backend/tach.toml",
   "pylint.severity": {
