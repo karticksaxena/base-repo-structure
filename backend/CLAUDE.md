@@ -2,7 +2,7 @@
 
 ## Dev tooling
 
-Follow **`../SETUP.md`**. Every lint, type, size and structure rule lives in `pyproject.toml` — never in `.vscode/settings.json`, and never in a separate `pyrightconfig.json`, `.flake8`, `.pylintrc` or `tach.toml`.
+Follow **`../SETUP.md`**. Lint, type, size and test rules live in `pyproject.toml`; layer rules in `tach.toml` — never in `.vscode/settings.json`, and never in a separate `pyrightconfig.json`, `.flake8` or `.pylintrc`.
 
 ## Stack
 
@@ -15,7 +15,7 @@ Always the latest stable, mutually compatible versions — never prereleases, ne
 ## Rules
 
 1. **NESTJS-STYLE FEATURES** — one folder per domain in `src/app/features/<name>/` with `router.py` (HTTP only, Nest controller), `service.py` (logic), `repository.py` (data access), `schemas.py` (Pydantic DTOs), `dependencies.py` (dishka `Provider`, Nest module providers). `tests/test_structure.py` fails when a file is missing
-2. **LAYERS** — router → service → repository, never skipped or reversed; another feature is used only through its service. Enforced by tach (`[tool.tach]`); a new kind of module gets a tach entry, never a looser rule
+2. **LAYERS** — router → service → repository, never skipped or reversed; another feature is used only through its service. Enforced by tach (`tach.toml`); a new kind of module gets a tach entry, never a looser rule
 3. **REPOSITORY PATTERN** — all DB/Redis access goes through repositories; no queries in services
 4. **DI THROUGH DISHKA** — register each feature's `Provider` in `core/container.py`; routers use `route_class=DishkaRoute` and take `FromDishka[Service]`; request-scoped objects (DB session, current user) come from providers, never built in a route
 5. **ABSOLUTE IMPORTS** — `from src.app.X import Y`; relative imports only in `__init__.py`

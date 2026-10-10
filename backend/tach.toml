@@ -1,0 +1,53 @@
+# NestJS-style layers: router -> service -> repository.
+# Its own file (not [tool.tach] in pyproject.toml): the VS Code extension starts
+# `tach server -c backend/tach.toml` from the repo root, and `-c` reads a whole file
+# as tach config.
+source_roots = ["."]
+exclude = ["tests", "**/__pycache__", ".venv"]
+root_module = "forbid"                         # every source file must belong to a module below
+
+[[modules]]
+path = "src.app.main"
+depends_on = [
+  "src.app.core.container",
+  "src.app.core.logger",
+  "src.app.features.*.router",
+]
+
+[[modules]]
+path = "src.app.core.config"
+depends_on = []
+utility = true               # any module may read settings
+
+[[modules]]
+path = "src.app.core.logger"
+depends_on = ["src.app.core.config"]
+utility = true                       # any module may log
+
+[[modules]]
+path = "src.app.core.container"
+depends_on = ["src.app.features.*.dependencies"]
+
+[[modules]]
+path = "src.app.features.*.router"
+depends_on = ["src.app.features.*.service", "src.app.features.*.schemas"]
+
+[[modules]]
+path = "src.app.features.*.service"
+depends_on = [
+  "src.app.features.*.repository",
+  "src.app.features.*.schemas",
+  "src.app.features.*.service",    # a service may use another feature's service (Nest exports)
+]
+
+[[modules]]
+path = "src.app.features.*.repository"
+depends_on = ["src.app.features.*.schemas"]
+
+[[modules]]
+path = "src.app.features.*.schemas"
+depends_on = []
+
+[[modules]]
+path = "src.app.features.*.dependencies"
+depends_on = ["src.app.features.*.repository", "src.app.features.*.service"]

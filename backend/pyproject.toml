@@ -87,58 +87,6 @@ enable = ["too-many-lines"]
 [tool.pylint.format]
 max-module-lines = 500
 
-# --- NestJS-style layers (tach): router -> service -> repository ---
-[tool.tach]
-source_roots = ["."]
-exclude = ["tests", "**/__pycache__", ".venv"]
-root_module = "forbid"                         # every source file must belong to a module below
-
-[[tool.tach.modules]]
-path = "src.app.main"
-depends_on = [
-  "src.app.core.container",
-  "src.app.core.logger",
-  "src.app.features.*.router",
-]
-
-[[tool.tach.modules]]
-path = "src.app.core.config"
-depends_on = []
-utility = true               # any module may read settings
-
-[[tool.tach.modules]]
-path = "src.app.core.logger"
-depends_on = ["src.app.core.config"]
-utility = true                       # any module may log
-
-[[tool.tach.modules]]
-path = "src.app.core.container"
-depends_on = ["src.app.features.*.dependencies"]
-
-[[tool.tach.modules]]
-path = "src.app.features.*.router"
-depends_on = ["src.app.features.*.service", "src.app.features.*.schemas"]
-
-[[tool.tach.modules]]
-path = "src.app.features.*.service"
-depends_on = [
-  "src.app.features.*.repository",
-  "src.app.features.*.schemas",
-  "src.app.features.*.service",    # a service may use another feature's service (Nest exports)
-]
-
-[[tool.tach.modules]]
-path = "src.app.features.*.repository"
-depends_on = ["src.app.features.*.schemas"]
-
-[[tool.tach.modules]]
-path = "src.app.features.*.schemas"
-depends_on = []
-
-[[tool.tach.modules]]
-path = "src.app.features.*.dependencies"
-depends_on = ["src.app.features.*.repository", "src.app.features.*.service"]
-
 # --- Tests (pytest) ---
 [tool.pytest]
 addopts = [

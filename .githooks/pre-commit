@@ -1,0 +1,20 @@
+#!/bin/sh
+# Runs the fast checks before every commit. Enable once per clone:
+#   git config core.hooksPath .githooks
+set -e
+root=$(git rev-parse --show-toplevel)
+
+cd "$root/backend"
+uv run ruff check src tests
+uv run ruff format --check src tests
+uv run basedpyright
+uv run flake8 src tests
+uv run pylint src tests
+uv run tach check
+uv run pytest -q
+
+cd "$root/frontend"
+pnpm run --silent lint
+pnpm run --silent typecheck
+pnpm run --silent format:check
+pnpm run --silent test

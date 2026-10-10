@@ -8,12 +8,12 @@ Production-ready linting, formatting, type-checking, size limits, structure chec
 
 ## For AI agents — read this first
 
-1. **Three-layer rule** — rules live in config files (`backend/pyproject.toml`, `frontend/.oxlintrc.json`, `.prettierrc`, `tsconfig.json`); editor wiring **and format-on-save** live in the committed `.vscode/settings.json`; the only user setting is `files.autoSave`.
+1. **Three-layer rule** — rules live in config files (`backend/pyproject.toml`, `backend/tach.toml`, `frontend/.oxlintrc.json`, `.prettierrc`, `tsconfig.json`); editor wiring **and format-on-save** live in the committed `.vscode/settings.json`; the only user setting is `files.autoSave`.
 2. **One package manager per side** — `uv` for Python (never pip, poetry or a bare `python -m venv`); `pnpm` for the frontend (never npm or yarn). Commit `uv.lock`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`.
 3. **Latest stable versions, never pinned in docs** — `uv add <pkg>` / `pnpm add <pkg>@latest` without a version; never a prerelease. If the newest major of one tool breaks another, use the newest major that passes [Verify CLI](#verify-cli) **and** [Verify editor](#verify-editor-smoke-test--delete-after), and record why in [Troubleshooting](#troubleshooting) (current case: TypeScript stays on 6).
 4. **Bare defaults** — backend = `main.py` + `core/` + one sample feature; frontend = `create-next-app` default. Add a library only when a feature needs it ([Libraries by use case](#libraries-by-use-case)).
 5. **Size limits are lint rules, not advice** — files ≤ **500** lines, functions ≤ **100** lines, as **errors**, in backend and frontend. When one fires, split the file or function — never raise the limit, never add a disable comment.
-6. **Structure is a lint rule** — every backend feature has the same files (`tests/test_structure.py`) and imports only in the router → service → repository direction (tach, `[tool.tach]`). A new kind of module gets its own tach entry; never loosen `root_module = "forbid"`.
+6. **Structure is a lint rule** — every backend feature has the same files (`tests/test_structure.py`) and imports only in the router → service → repository direction (tach, `backend/tach.toml`). A new kind of module gets its own tach entry; never loosen `root_module = "forbid"`.
 7. **Check the editor, not just the CLI** — the smoke tests must show the same problems in the VS Code Problems panel as the CLI. A setting that was never seen working in the editor is a guess.
 8. **Install the VS Code extensions yourself** ([Required extensions](#required-vs-code-extensions)) and uninstall Pylance; then ask the user to reload the window — batch every reload/open request into one message.
 9. **Do not use** settings that don't exist or are deprecated: `ruff.cwd`, `ruff.lint.run`, `ruff.lint.select` / `ruff.lineLength` / `ruff.configuration` (they override `pyproject.toml`), `python.analysis.*` (Pylance only), `cursorpyright.*`, `typescript.tsdk` / `typescript.enablePromptUseWorkspaceTsdk` (use `js/ts.tsdk.path` / `js/ts.tsdk.promptToUseWorkspaceVersion`).
@@ -28,7 +28,7 @@ Production-ready linting, formatting, type-checking, size limits, structure chec
 | Python types                         | BasedPyright (`recommended`)          | `pyproject.toml`                   | **every file**, open or not                              | task `backend: basedpyright`             |
 | Function ≤ 100 lines (py)            | flake8 + `flake8-max-function-length` | `pyproject.toml` (`[tool.flake8]`) | open files                                               | task `backend: function length (flake8)` |
 | File ≤ 500 lines (py)                | pylint, only `too-many-lines`         | `pyproject.toml`                   | open files                                               | task `backend: file length (pylint)`     |
-| Layers router → service → repository | tach                                  | `pyproject.toml` (`[tool.tach]`)   | — (no maintained extension)                              | task `backend: structure (tach)`         |
+| Layers router → service → repository | tach                                  | `backend/tach.toml`                | open files (Tach extension)                              | task `backend: structure (tach)`         |
 | Feature has all files                | pytest `tests/test_structure.py`      | the test                           | —                                                        | task `backend: test`                     |
 | TS/TSX lint, size limits             | oxlint (type-aware)                   | `frontend/.oxlintrc.json`          | open files                                               | task `frontend: lint`                    |
 | TS types                             | `tsc` / VS Code TypeScript            | `frontend/tsconfig.json`           | every file of a project once one of its files was opened | task `frontend: typecheck`               |
@@ -41,11 +41,11 @@ VS Code has **no global "lint the whole workspace" setting** — each extension 
 
 ## Architecture: three layers
 
-| Layer              | Location                                                                            | Purpose                                                                    | Commit? |
-| ------------------ | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------- |
-| **Rules**          | `backend/pyproject.toml`, `frontend/.oxlintrc.json`, `.prettierrc`, `tsconfig.json` | What to enforce — shared by CLI and editor                                 | Yes     |
-| **Project wiring** | `.vscode/settings.json`, `extensions.json`, `tasks.json`                            | Interpreter/tool paths, workspace diagnostics, formatters + format-on-save | Yes     |
-| **Personal prefs** | VS Code user `settings.json`                                                        | `files.autoSave` only                                                      | No      |
+| Layer              | Location                                                                                                 | Purpose                                                                    | Commit? |
+| ------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------- |
+| **Rules**          | `backend/pyproject.toml`, `backend/tach.toml`, `frontend/.oxlintrc.json`, `.prettierrc`, `tsconfig.json` | What to enforce — shared by CLI and editor                                 | Yes     |
+| **Project wiring** | `.vscode/settings.json`, `extensions.json`, `tasks.json`                                                 | Interpreter/tool paths, workspace diagnostics, formatters + format-on-save | Yes     |
+| **Personal prefs** | VS Code user `settings.json`                                                                             | `files.autoSave` only                                                      | No      |
 
 **Golden rule:** lint, type and format **rules** live in config files, never in VS Code settings.
 
@@ -60,18 +60,19 @@ VS Code has **no global "lint the whole workspace" setting** — each extension 
 | Ruff             | `charliermarsh.ruff`       | Python lint + format + import sorting                      |
 | Flake8           | `ms-python.flake8`         | Function length (`MFL000`)                                 |
 | Pylint           | `ms-python.pylint`         | File length (`C0302`)                                      |
+| Tach             | `gauge.tach`               | Layer violations (tach language server)                    |
 | Oxc              | `oxc.oxc-vscode`           | oxlint diagnostics + fix-on-save                           |
 | Prettier         | `esbenp.prettier-vscode`   | Formatting (uses the project's `prettier` + `.prettierrc`) |
 | Even Better TOML | `tamasfe.even-better-toml` | TOML formatting (`pyproject.toml`)                         |
 
-Not wanted: **Pylance** (`ms-python.vscode-pylance` — clashes with BasedPyright; the Python extension installs it as part of its pack, so uninstall it after installing Python) and **ESLint** (this repo uses oxlint). Tach has no maintained extension — use its task. `httpx2`, `pytest-asyncio` and `flake8-pyproject` are libraries/plugins, not editor tools.
+Not wanted: **Pylance** (`ms-python.vscode-pylance` — clashes with BasedPyright; the Python extension installs it as part of its pack, so uninstall it after installing Python) and **ESLint** (this repo uses oxlint). The Tach extension's last release is old (Feb 2025) but it only launches `python -m tach server -c backend/tach.toml` from `backend/.venv`, so it runs the current tach (verified). `httpx2`, `pytest-asyncio` and `flake8-pyproject` are libraries/plugins, not editor tools.
 
 Install from a terminal (macOS; the `code` command may not be on `PATH`):
 
 ```bash
 CODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
 for ext in ms-python.python detachhead.basedpyright charliermarsh.ruff ms-python.flake8 \
-           ms-python.pylint oxc.oxc-vscode esbenp.prettier-vscode tamasfe.even-better-toml; do
+           ms-python.pylint gauge.tach oxc.oxc-vscode esbenp.prettier-vscode tamasfe.even-better-toml; do
   "$CODE" --install-extension "$ext"
 done
 "$CODE" --uninstall-extension ms-python.vscode-pylance
@@ -173,58 +174,6 @@ enable = ["too-many-lines"]
 [tool.pylint.format]
 max-module-lines = 500
 
-# --- NestJS-style layers (tach): router -> service -> repository ---
-[tool.tach]
-source_roots = ["."]
-exclude = ["tests", "**/__pycache__", ".venv"]
-root_module = "forbid"                         # every source file must belong to a module below
-
-[[tool.tach.modules]]
-path = "src.app.main"
-depends_on = [
-  "src.app.core.container",
-  "src.app.core.logger",
-  "src.app.features.*.router",
-]
-
-[[tool.tach.modules]]
-path = "src.app.core.config"
-depends_on = []
-utility = true               # any module may read settings
-
-[[tool.tach.modules]]
-path = "src.app.core.logger"
-depends_on = ["src.app.core.config"]
-utility = true                       # any module may log
-
-[[tool.tach.modules]]
-path = "src.app.core.container"
-depends_on = ["src.app.features.*.dependencies"]
-
-[[tool.tach.modules]]
-path = "src.app.features.*.router"
-depends_on = ["src.app.features.*.service", "src.app.features.*.schemas"]
-
-[[tool.tach.modules]]
-path = "src.app.features.*.service"
-depends_on = [
-  "src.app.features.*.repository",
-  "src.app.features.*.schemas",
-  "src.app.features.*.service",    # a service may use another feature's service (Nest exports)
-]
-
-[[tool.tach.modules]]
-path = "src.app.features.*.repository"
-depends_on = ["src.app.features.*.schemas"]
-
-[[tool.tach.modules]]
-path = "src.app.features.*.schemas"
-depends_on = []
-
-[[tool.tach.modules]]
-path = "src.app.features.*.dependencies"
-depends_on = ["src.app.features.*.repository", "src.app.features.*.service"]
-
 # --- Tests (pytest) ---
 [tool.pytest]
 addopts = [
@@ -242,6 +191,64 @@ markers = [
 ]
 ```
 
+`backend/tach.toml` — the layer rules. They live in tach's own file, not `[tool.tach]` in `pyproject.toml`: the VS Code extension starts `tach server -c backend/tach.toml` from the repo root, and `-c` reads the whole file as tach config (`pyproject.toml` fails with `unknown field dependency-groups`). The CLI (`uv run tach check` in `backend/`) finds `tach.toml` on its own.
+
+```toml
+# NestJS-style layers: router -> service -> repository.
+# Its own file (not [tool.tach] in pyproject.toml): the VS Code extension starts
+# `tach server -c backend/tach.toml` from the repo root, and `-c` reads a whole file
+# as tach config.
+source_roots = ["."]
+exclude = ["tests", "**/__pycache__", ".venv"]
+root_module = "forbid"                         # every source file must belong to a module below
+
+[[modules]]
+path = "src.app.main"
+depends_on = [
+  "src.app.core.container",
+  "src.app.core.logger",
+  "src.app.features.*.router",
+]
+
+[[modules]]
+path = "src.app.core.config"
+depends_on = []
+utility = true               # any module may read settings
+
+[[modules]]
+path = "src.app.core.logger"
+depends_on = ["src.app.core.config"]
+utility = true                       # any module may log
+
+[[modules]]
+path = "src.app.core.container"
+depends_on = ["src.app.features.*.dependencies"]
+
+[[modules]]
+path = "src.app.features.*.router"
+depends_on = ["src.app.features.*.service", "src.app.features.*.schemas"]
+
+[[modules]]
+path = "src.app.features.*.service"
+depends_on = [
+  "src.app.features.*.repository",
+  "src.app.features.*.schemas",
+  "src.app.features.*.service",    # a service may use another feature's service (Nest exports)
+]
+
+[[modules]]
+path = "src.app.features.*.repository"
+depends_on = ["src.app.features.*.schemas"]
+
+[[modules]]
+path = "src.app.features.*.schemas"
+depends_on = []
+
+[[modules]]
+path = "src.app.features.*.dependencies"
+depends_on = ["src.app.features.*.repository", "src.app.features.*.service"]
+```
+
 Notes (each verified by running the tool):
 
 - **BasedPyright `recommended`** reports `reportUnannotatedClassAttribute`: annotate attributes (`self._repository: ItemRepository = repository`) and Pydantic config (`model_config: ClassVar[ConfigDict] = ConfigDict(...)`). Annotate `@asynccontextmanager` functions `-> AsyncGenerator[None]`, not `AsyncIterator` (typeshed marks the latter deprecated). dishka types `provide` with `Any`, so its import carries `# pyright: ignore[reportUnknownVariableType]`.
@@ -249,14 +256,15 @@ Notes (each verified by running the tool):
 - **`banned-api`** makes `from loguru import logger` an error everywhere except `core/logger.py`.
 - **flake8** runs only `MFL`. `flake8-max-function-length` counts code lines only (it skips the `def` line, docstrings, blank lines and comments — the same as oxlint's `skipBlankLines` / `skipComments`).
 - **pylint** runs only `too-many-lines` (`C0302`). It counts **every** line, blank and comment lines included, so the Python file limit is slightly stricter than the frontend's. Ruff has no line-count rule (checked in Ruff 0.17: only `PLR0915` statement counts and `C901` complexity).
-- **tach** checks imports between the modules above: a router importing a repository fails (`Module 'src.app.features.items.router' cannot depend on 'src.app.features.items.repository'`), a repository importing a service fails, and with `root_module = "forbid"` a file that matches no module (e.g. `features/items/utils.py`) fails as `Module '<root>' cannot depend on …`. Globs (`*`) can't say "the same feature", so a service may import another feature's repository — review catches that one.
+- **tach** (rules in `tach.toml`, next section) checks imports between modules: a router importing a repository fails (`Module 'src.app.features.items.router' cannot depend on 'src.app.features.items.repository'`), a repository importing a service fails, and with `root_module = "forbid"` a file that matches no module (e.g. `features/items/utils.py`) fails as `Module '<root>' cannot depend on …`. Globs (`*`) can't say "the same feature", so a service may import another feature's repository — review catches that one.
 - **pytest 9** reads the native `[tool.pytest]` table (header shows `configfile: pyproject.toml`, `asyncio: mode=Mode.AUTO`).
 
 ### 4. Structure (NestJS-style feature modules)
 
 ```
 backend/
-├── pyproject.toml          ← every rule
+├── pyproject.toml          ← every rule except layers
+├── tach.toml               ← layer rules (router → service → repository)
 ├── .python-version
 ├── uv.lock
 ├── src/app/
@@ -432,6 +440,7 @@ Then:
 - ORM models in `features/<name>/models.py`; repositories take an `AsyncSession` in `__init__`
 - tach: add modules `src.app.core.database` (`depends_on = ["src.app.core.config"]`) and `src.app.features.*.models` (`depends_on = []`), add `"src.app.core.database"` to `core.container`'s `depends_on`, and `"src.app.features.*.models"` to the repository's
 - Alembic: never edit an existing migration; review autogenerate output; run `alembic upgrade head` in CI/CD, never at app startup
+- Ruff: add `"sqlalchemy".msg = "Database access goes through repositories."` to `banned-api`, and `TID251` to `per-file-ignores` for `src/app/features/*/repository.py`, `src/app/features/*/models.py` and `src/app/core/database.py` — a query in a service is then an error
 - Integration tests use a real test database and roll back after each test
 
 ### 8. Verify CLI (backend)
@@ -477,16 +486,7 @@ echo 'lts/*' > .nvmrc
 ```json
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "typescript",
-    "unicorn",
-    "oxc",
-    "import",
-    "react",
-    "jsx-a11y",
-    "nextjs",
-    "vitest"
-  ],
+  "plugins": ["typescript", "unicorn", "oxc", "import", "react", "jsx-a11y", "nextjs", "vitest"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn"
@@ -552,13 +552,7 @@ echo 'lts/*' > .nvmrc
       }
     ]
   },
-  "ignorePatterns": [
-    "node_modules/",
-    ".next/",
-    "dist/",
-    "coverage/",
-    "next-env.d.ts"
-  ],
+  "ignorePatterns": ["node_modules/", ".next/", "dist/", "coverage/", "next-env.d.ts"],
   "overrides": [
     {
       "files": ["src/components/ui/**"],
@@ -603,32 +597,32 @@ printf 'pnpm-lock.yaml\npnpm-workspace.yaml\n.next\nnext-env.d.ts\ndist\ncoverag
 Tests — Vitest + React Testing Library (Next's bundled guide: `node_modules/next/dist/docs/01-app/02-guides/testing/vitest.md`):
 
 ```bash
-pnpm add -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/dom vite-tsconfig-paths
+pnpm add -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/dom
 ```
 
-`vitest.config.mts`:
+`vitest.config.mts` — Vite resolves the `@/` alias from `tsconfig.json` itself (`resolve.tsconfigPaths`); the `vite-tsconfig-paths` plugin is no longer needed (Vitest warns when it's installed):
 
 ```ts
-import react from "@vitejs/plugin-react";
-import tsconfigPaths from "vite-tsconfig-paths";
-import { defineConfig } from "vitest/config";
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  plugins: [tsconfigPaths(), react()],
-  test: { environment: "jsdom" },
+  plugins: [react()],
+  resolve: { tsconfigPaths: true },
+  test: { environment: 'jsdom' },
 });
 ```
 
 `src/app/page.test.tsx` (tests sit next to the code):
 
 ```tsx
-import { render, screen } from "@testing-library/react";
-import { expect, test } from "vitest";
-import Page from "./page";
+import { render, screen } from '@testing-library/react';
+import { expect, test } from 'vitest';
+import Page from './page';
 
-test("renders the main heading", () => {
+test('renders the main heading', () => {
   render(<Page />);
-  expect(screen.getByRole("heading", { level: 1 })).toBeDefined();
+  expect(screen.getByRole('heading', { level: 1 })).toBeDefined();
 });
 ```
 
@@ -703,6 +697,8 @@ Recommends the eight extensions above; `unwantedRecommendations`: `ms-python.vsc
   "pylint.importStrategy": "fromEnvironment",
   "pylint.cwd": "${workspaceFolder}/backend",
   "pylint.lintOnChange": true,
+  "tach.importStrategy": "fromEnvironment",
+  "tach.configuration": "backend/tach.toml",
   "pylint.severity": {
     "convention": "Error",
     "error": "Error",
@@ -746,6 +742,7 @@ Why each line (setting names checked in each extension's `package.json`):
 - `basedpyright.analysis.diagnosticMode: "workspace"` — type errors for **every** file, opened or not (verified: an unopened file's error appears in Problems). `configFilePath` points BasedPyright at `backend/pyproject.toml`.
 - `*.interpreter` + `importStrategy: "fromEnvironment"` — Ruff, Flake8 and Pylint run the versions in `backend/.venv` (the same ones as the CLI, with the `flake8-max-function-length` / `flake8-pyproject` plugins); the bundled copies don't have the plugins.
 - `flake8.cwd` / `pylint.cwd` — both read `backend/pyproject.toml` from their working directory. Ruff needs no `cwd`: it finds the nearest `pyproject.toml` per file (`ruff.cwd` doesn't exist).
+- `tach.*` — the Tach extension runs `python -m tach server -c <configuration>` with the repo root as working directory, using the interpreter selected in VS Code (`backend/.venv`). Don't set `tach.interpreter`: at startup the extension passes it unexpanded to the Python extension, `${workspaceFolder}/…` resolves to nothing (`Python version undefined.undefined is not supported`) and the server never starts. `configuration` is passed as-is, so it is relative to the repo root.
 - `pylint.severity.convention: "Error"` — `C0302` is a _convention_ message, which the extension shows as Information by default.
 - `js/ts.tsserver.experimental.enableProjectDiagnostics` — TypeScript errors for every file of a project once one of its files was opened (experimental; `pnpm run typecheck` is always accurate).
 - `oxc.path.tsgolint` — the Oxc language server runs from the repo root, which has no `node_modules`, so it can't find the type-aware engine on its own.
@@ -829,13 +826,13 @@ Open `smoke.py` only. Expect in Problems (verified):
 | Pylint                                                | `Too many lines in module (514/500)` (error)                                  |
 | basedpyright, in **`smoke_closed.py` (never opened)** | the same type error — proves whole-workspace mode                             |
 
-Then run **Tasks → `backend: structure (tach)`**: Problems shows `Module '<root>' cannot depend on 'src.app.features.items.repository'` on `smoke.py` (a file outside the feature module types). Type a character in `smoke.py` and click away: auto-save runs Ruff — the unused imports disappear.
+Also expect, source **tach** (verified), on `smoke.py` line 4: `Module '<root>' cannot depend on 'src.app.features.items.repository'` (a file outside the feature module types). Type a character in `smoke.py` and click away: auto-save runs Ruff — the unused imports disappear.
 
 **Frontend** — create three files in `frontend/src/app/`:
 
 ```ts
 // smoke.ts — SMOKE TEST: delete after verifying
-import { readFile } from "node:fs";
+import { readFile } from 'node:fs';
 
 async function save(): Promise<void> {}
 
@@ -844,7 +841,7 @@ export function run(value: any) {
   save();
 }
 
-export const wrongType: number = "not-a-number";
+export const wrongType: number = 'not-a-number';
 ```
 
 ```bash
@@ -852,7 +849,7 @@ node -e "require('fs').writeFileSync('frontend/src/app/smoke-size.ts', '// SMOKE
 ```
 
 ```tsx
-// smoke.tsx — SMOKE TEST: delete after verifying
+// smoke-jsx.tsx — SMOKE TEST: delete after verifying
 export function Smoke(): React.JSX.Element {
   return (
     <a href="/about">
@@ -862,40 +859,55 @@ export function Smoke(): React.JSX.Element {
 }
 ```
 
-Open all three. Expect, source **oxc**, all errors: `no-unused-vars`, `explicit-function-return-type`, `no-explicit-any`, `no-console`, `no-floating-promises` (proves type-aware linting), `max-lines-per-function` (`big`, 104 lines), `next(no-html-link-for-pages)`, `next(no-img-element)`; source **ts**: `Type 'string' is not assignable to type 'number'`. Compare with `cd frontend && pnpm run lint` — the lists must match. Type a character in `smoke.ts` and click away: double quotes become single, semicolons are added, the unused import is removed.
+Open all three. (`smoke-jsx.tsx` must not share a base name with `smoke.ts`: TypeScript keeps only one of `x.ts` / `x.tsx` in a project, so the other is checked as a loose file and reports false errors like `Cannot find namespace 'React'`.) Expect, source **oxc**, all errors: `no-unused-vars`, `explicit-function-return-type`, `no-explicit-any`, `no-console`, `no-floating-promises` (proves type-aware linting), `max-lines-per-function` (`big`, 104 lines), `next(no-html-link-for-pages)`, `next(no-img-element)`; source **ts**: `Type 'string' is not assignable to type 'number'`. Compare with `cd frontend && pnpm run lint` — the lists must match. Type a character in `smoke.ts` and click away: double quotes become single, semicolons are added, the unused import is removed.
 
-**Full workspace** — run **Tasks → `check: all`**: every tool's problems for every file appear, including closed ones. Delete all smoke files afterwards (`smoke.py`, `smoke_closed.py`, `smoke.ts`, `smoke-size.ts`, `smoke.tsx`).
+**Full workspace** — run **Tasks → `check: all`**: every tool's problems for every file appear, including closed ones. Delete all smoke files afterwards (`smoke.py`, `smoke_closed.py`, `smoke.ts`, `smoke-size.ts`, `smoke-jsx.tsx`).
+
+---
+
+## Git pre-commit hook
+
+`.githooks/pre-commit` runs the fast checks (every backend check, frontend lint/typecheck/format/test) and blocks the commit when one fails. Git doesn't enable committed hooks by itself — once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+There is no CI workflow in this template.
 
 ---
 
 ## Troubleshooting
 
-| Symptom                                                                            | Fix                                                                                                                                                                                                                                                                                                                                                                          |
-| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No Python problems at all after opening the folder                                 | The Python extensions activate on an open `.py` file (their root-level triggers don't see `backend/`). Open any Python file; Output → **BasedPyright** / **Flake8** / **Pylint** shows they started                                                                                                                                                                          |
-| `Package … is not installed in the selected environment` on `pyproject.toml`       | VS Code selected a global Python. **Python: Select Interpreter → `backend/.venv/bin/python`**                                                                                                                                                                                                                                                                                |
-| Problems empty, CLI finds type errors                                              | BasedPyright extension missing/disabled, or Pylance still installed; `python.languageServer: "None"`; Reload Window                                                                                                                                                                                                                                                          |
-| Flake8/Pylint silent or using defaults                                             | `importStrategy: "fromEnvironment"`, `*.interpreter` → `backend/.venv`, `*.cwd` → `backend/`; `uv sync` so the plugins are installed                                                                                                                                                                                                                                         |
-| flake8 ignores `[tool.flake8]`                                                     | `flake8-pyproject` missing, or flake8 runs from a directory without `pyproject.toml`                                                                                                                                                                                                                                                                                         |
-| File-length problem shows as blue Information                                      | `pylint.severity` needs `"convention": "Error"`                                                                                                                                                                                                                                                                                                                              |
-| `tach`: `Module '<root>' cannot depend on …`                                       | The file matches no module in `[tool.tach]` — move the code into a feature file or add a module entry for the new kind of file                                                                                                                                                                                                                                               |
-| `tach`: `Module '…router' cannot depend on '…repository'`                          | Go through the service — routers never touch repositories                                                                                                                                                                                                                                                                                                                    |
-| `test_feature_has_required_files` fails                                            | The feature folder is missing one of `router.py`, `service.py`, `repository.py`, `schemas.py`, `dependencies.py`, `__init__.py`                                                                                                                                                                                                                                              |
-| `MFL000` / `C0302` / `max-lines*` error                                            | Split the function or file. Never raise `max` or add a disable comment                                                                                                                                                                                                                                                                                                       |
-| BasedPyright `reportUnannotatedClassAttribute`                                     | Annotate the attribute (`self._x: T = x`, `model_config: ClassVar[ConfigDict] = …`)                                                                                                                                                                                                                                                                                          |
-| BasedPyright: `asynccontextmanager` is deprecated                                  | Annotate the lifespan `-> AsyncGenerator[None]`, not `AsyncIterator[None]`                                                                                                                                                                                                                                                                                                   |
-| BasedPyright `reportUnknownVariableType` on `from dishka import provide`           | dishka types `provide` with `Any` — keep the `# pyright: ignore[reportUnknownVariableType]` on that import                                                                                                                                                                                                                                                                   |
-| `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated` | `uv add --dev httpx2`                                                                                                                                                                                                                                                                                                                                                        |
-| `uv python install` can't find the newest Python                                   | Upgrade uv (`brew upgrade uv`) — its download list is built in                                                                                                                                                                                                                                                                                                               |
-| Ruff flags differ between editor and CLI                                           | Remove `ruff.lint.select` / `ruff.lineLength` / `ruff.configuration` from user settings                                                                                                                                                                                                                                                                                      |
-| `pnpm run lint` hangs for minutes                                                  | oxlint is linting `node_modules` — missing `.gitignore` / `ignorePatterns`                                                                                                                                                                                                                                                                                                   |
-| Editor shows only a few oxc **warnings** while `pnpm run lint` shows errors        | `frontend/.oxlintrc.json` contains `options.typeAware` — not allowed in nested configs; remove it, then **Oxc: Restart Server**                                                                                                                                                                                                                                              |
-| Editor misses `no-floating-promises` / `no-unsafe-*`                               | Set `"oxc.path.tsgolint": "frontend/node_modules/.bin/tsgolint"`, then Reload Window                                                                                                                                                                                                                                                                                         |
-| **TypeScript 7** (`typescript@latest`)                                             | Kept on **TypeScript 6**: TypeScript 7 passes `tsc`, oxlint and `next build`, but ships no `lib/tsserver.js`, so `js/ts.tsdk.path` and the project-wide diagnostics this repo relies on don't work with it (VS Code needs the separate `TypeScriptTeam.native-preview` extension for now). Move to 7 once VS Code's built-in TypeScript supports it with project diagnostics |
-| `Cannot find name 'LayoutProps'`                                                   | `typecheck` must run `next typegen` before `tsc`                                                                                                                                                                                                                                                                                                                             |
-| `format:check` fails after scaffolding or `shadcn add`                             | Run `pnpm run format`                                                                                                                                                                                                                                                                                                                                                        |
-| Format/fix on save didn't run after an agent edited a file                         | Auto-save only saves unsaved edits — type in the file or press Cmd+S                                                                                                                                                                                                                                                                                                         |
-| `AGENTS.md` keeps reappearing in the diff                                          | `next dev` maintains it — commit it                                                                                                                                                                                                                                                                                                                                          |
+| Symptom                                                                            | Fix                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No Python problems at all after opening the folder                                 | The Python extensions activate on an open `.py` file (their root-level triggers don't see `backend/`). Open any Python file; Output → **BasedPyright** / **Flake8** / **Pylint** shows they started                                                                                                                                                                                |
+| `Package … is not installed in the selected environment` on `pyproject.toml`       | VS Code selected a global Python. **Python: Select Interpreter → `backend/.venv/bin/python`**                                                                                                                                                                                                                                                                                      |
+| Problems empty, CLI finds type errors                                              | BasedPyright extension missing/disabled, or Pylance still installed; `python.languageServer: "None"`; Reload Window                                                                                                                                                                                                                                                                |
+| Flake8/Pylint silent or using defaults                                             | `importStrategy: "fromEnvironment"`, `*.interpreter` → `backend/.venv`, `*.cwd` → `backend/`; `uv sync` so the plugins are installed                                                                                                                                                                                                                                               |
+| flake8 ignores `[tool.flake8]`                                                     | `flake8-pyproject` missing, or flake8 runs from a directory without `pyproject.toml`                                                                                                                                                                                                                                                                                               |
+| File-length problem shows as blue Information                                      | `pylint.severity` needs `"convention": "Error"`                                                                                                                                                                                                                                                                                                                                    |
+| `tach`: `Module '<root>' cannot depend on …`                                       | The file matches no module in `tach.toml` — move the code into a feature file or add a module entry for the new kind of file                                                                                                                                                                                                                                                       |
+| Tach problems missing in the editor                                                | Tach extension installed; `tach.configuration` = `backend/tach.toml`; **no** `tach.interpreter`; interpreter selected = `backend/.venv`. Output → **Tach** must show `Project root: …/backend`. `Configuration file not found` = `tach.configuration` missing; `Python version undefined.undefined` = remove `tach.interpreter`. The task `backend: structure (tach)` always works |
+| `tach`: `Module '…router' cannot depend on '…repository'`                          | Go through the service — routers never touch repositories                                                                                                                                                                                                                                                                                                                          |
+| `test_feature_has_required_files` fails                                            | The feature folder is missing one of `router.py`, `service.py`, `repository.py`, `schemas.py`, `dependencies.py`, `__init__.py`                                                                                                                                                                                                                                                    |
+| `MFL000` / `C0302` / `max-lines*` error                                            | Split the function or file. Never raise `max` or add a disable comment                                                                                                                                                                                                                                                                                                             |
+| BasedPyright `reportUnannotatedClassAttribute`                                     | Annotate the attribute (`self._x: T = x`, `model_config: ClassVar[ConfigDict] = …`)                                                                                                                                                                                                                                                                                                |
+| BasedPyright: `asynccontextmanager` is deprecated                                  | Annotate the lifespan `-> AsyncGenerator[None]`, not `AsyncIterator[None]`                                                                                                                                                                                                                                                                                                         |
+| BasedPyright `reportUnknownVariableType` on `from dishka import provide`           | dishka types `provide` with `Any` — keep the `# pyright: ignore[reportUnknownVariableType]` on that import                                                                                                                                                                                                                                                                         |
+| `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated` | `uv add --dev httpx2`                                                                                                                                                                                                                                                                                                                                                              |
+| `uv python install` can't find the newest Python                                   | Upgrade uv (`brew upgrade uv`) — its download list is built in                                                                                                                                                                                                                                                                                                                     |
+| Ruff flags differ between editor and CLI                                           | Remove `ruff.lint.select` / `ruff.lineLength` / `ruff.configuration` from user settings                                                                                                                                                                                                                                                                                            |
+| `pnpm run lint` hangs for minutes                                                  | oxlint is linting `node_modules` — missing `.gitignore` / `ignorePatterns`                                                                                                                                                                                                                                                                                                         |
+| Editor shows only a few oxc **warnings** while `pnpm run lint` shows errors        | `frontend/.oxlintrc.json` contains `options.typeAware` — not allowed in nested configs; remove it, then **Oxc: Restart Server**                                                                                                                                                                                                                                                    |
+| Editor misses `no-floating-promises` / `no-unsafe-*`                               | Set `"oxc.path.tsgolint": "frontend/node_modules/.bin/tsgolint"`, then Reload Window                                                                                                                                                                                                                                                                                               |
+| **TypeScript 7** (`typescript@latest`)                                             | Kept on **TypeScript 6**: TypeScript 7 passes `tsc`, oxlint and `next build`, but ships no `lib/tsserver.js`, so `js/ts.tsdk.path` and the project-wide diagnostics this repo relies on don't work with it (VS Code needs the separate `TypeScriptTeam.native-preview` extension for now). Move to 7 once VS Code's built-in TypeScript supports it with project diagnostics       |
+| TS errors only in the editor, e.g. `Cannot find namespace 'React'` in a `.tsx`     | Another file has the same base name (`x.ts` next to `x.tsx`) — TypeScript drops one from the project; rename one. `pnpm exec tsc --noEmit --listFilesOnly` shows which files are in                                                                                                                                                                                                |
+| Vitest: `The plugin "vite-tsconfig-paths" is detected`                             | `pnpm remove vite-tsconfig-paths`; use `resolve: { tsconfigPaths: true }` in `vitest.config.mts`                                                                                                                                                                                                                                                                                   |
+| `Cannot find name 'LayoutProps'`                                                   | `typecheck` must run `next typegen` before `tsc`                                                                                                                                                                                                                                                                                                                                   |
+| `format:check` fails after scaffolding or `shadcn add`                             | Run `pnpm run format`                                                                                                                                                                                                                                                                                                                                                              |
+| Format/fix on save didn't run after an agent edited a file                         | Auto-save only saves unsaved edits — type in the file or press Cmd+S                                                                                                                                                                                                                                                                                                               |
+| `AGENTS.md` keeps reappearing in the diff                                          | `next dev` maintains it — commit it                                                                                                                                                                                                                                                                                                                                                |
 
 ---
 
@@ -905,6 +917,7 @@ Open all three. Expect, source **oxc**, all errors: `no-unused-vars`, `explicit-
 - [ ] **2.** `cd backend && uv sync`; `cd frontend && pnpm install`; `nvm install && nvm use` in `frontend/`
 - [ ] **3.** Install the VS Code extensions, uninstall Pylance → Reload Window → **Select Interpreter** → `backend/.venv`
 - [ ] **4.** User settings: `files.autoSave: "onFocusChange"`
+- [ ] **4b.** `git config core.hooksPath .githooks` (pre-commit hook)
 - [ ] **5.** Create `backend/.env` / `frontend/.env.local` for secrets (never commit)
 - [ ] **6.** Run [Verify CLI](#verify-cli) — all green
 - [ ] **7.** Run the [editor smoke test](#verify-editor-smoke-test--delete-after) → delete the smoke files
@@ -920,10 +933,12 @@ Open all three. Expect, source **oxc**, all errors: `no-unused-vars`, `explicit-
 ├── README.md
 ├── CLAUDE.md                   ← shared coding rules for AI agents
 ├── .gitignore                  ← one file for backend + frontend
+├── .prettierrc                 ← format style for root files (docs, .vscode/*.json) — same as frontend's
 ├── .vscode/                    ← extensions, settings (wiring + format on save), tasks
 ├── backend/
 │   ├── CLAUDE.md               ← backend rules
-│   ├── pyproject.toml          ← every backend rule (Ruff, BasedPyright, flake8, pylint, tach, pytest)
+│   ├── pyproject.toml          ← backend rules (Ruff, BasedPyright, flake8, pylint, pytest)
+│   ├── tach.toml               ← layer rules
 │   ├── .python-version, uv.lock
 │   ├── src/app/                ← main.py, core/, features/<name>/
 │   └── tests/                  ← test_structure.py + features/ mirror
@@ -943,7 +958,7 @@ Before marking tooling setup done, confirm:
 2. Frontend: `lint`, `typecheck`, `format:check`, `test`, `build`, `audit` all pass
 3. Editor smoke test: every row of the backend and frontend tables appears in Problems — as errors where listed — including the never-opened `smoke_closed.py`; then the smoke files are removed
 4. Size limits are errors in both: `max-function-length = 100` + `max-module-lines = 500` (backend), `max-lines-per-function` 100 + `max-lines` 500 (frontend)
-5. `[tool.tach]` has `root_module = "forbid"` and the router → service → repository rules; `tests/test_structure.py` exists
-6. No stray config files: no `pyrightconfig.json`, `.flake8`, `.pylintrc`, `tach.toml`, `eslint.config.mjs`, `frontend/.gitignore`
+5. `backend/tach.toml` has `root_module = "forbid"` and the router → service → repository rules; `tests/test_structure.py` exists
+6. No stray config files: no `pyrightconfig.json`, `.flake8`, `.pylintrc`, `[tool.tach]` in `pyproject.toml`, `eslint.config.mjs`, `frontend/.gitignore`
 7. Extensions installed as listed; Pylance and ESLint not installed; the interpreter is `backend/.venv`
 8. Versions are the newest stable ones that pass every check; any held-back major is recorded in Troubleshooting
