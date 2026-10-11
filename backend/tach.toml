@@ -8,6 +8,7 @@
 source_roots = ["."]
 exclude = ["tests", "**/__pycache__", ".venv"]
 root_module = "forbid"                         # every source file must belong to a module below
+ignore_type_checking_imports = false           # `if TYPE_CHECKING:` imports follow the layers too
 
 [external]
 exclude = ["granian"] # the ASGI server is run as a command, never imported

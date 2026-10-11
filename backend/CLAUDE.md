@@ -25,27 +25,33 @@ src/app/
     services/             # business logic (Nest services)
     repositories/         # data access — the only layer that touches the database or Redis
     schemas/              # Pydantic request/response models (Nest DTOs)
+    constants/            # fixed values used only by this feature (limits, mappings, enums)
+    utils/                # small helpers used only by this feature (formatting, transforming) — no business logic
     models/               # SQLAlchemy models (Nest entities) — once a database exists
     dependencies.py       # dishka Provider (Nest module providers)
-    tach.domain.toml      # this feature's layer rules (copied with the folder)
+    tach.domain.toml      # this feature's layer rules — identical in every feature
 ```
 
 Every layer folder is a package (`__init__.py`) holding one module per use-case area (`services/items.py`, `services/item_exports.py`).
 
-| Rule                                                                                                                         | Enforced by                       | Shows up                                                                              |
-| ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------- |
-| Every feature has `__init__.py`, `routers/`, `services/`, `repositories/`, `schemas/`, `dependencies.py`, `tach.domain.toml` | `tests/test_structure.py`         | `uv run pytest`, task `backend: test`, pre-commit hook                                |
-| Imports go routers → services → repositories only — no skipping, nothing upward                                              | tach (`tach.domain.toml`)         | live in open files (source `tach`), task `backend: structure (tach)`, pre-commit hook |
-| Another feature is used only through its `services` (or `schemas`) — never its repositories, routers or dependencies         | tach (`tach.domain.toml`)         | same                                                                                  |
-| `core/` never imports a feature (only `container.py` imports feature providers)                                              | tach                              | same                                                                                  |
-| `common/` is shared by everyone and never imports a feature (or `core/container.py`)                                         | tach (`tach.toml`)                | same                                                                                  |
-| Every file belongs to one of the folders above (`root_module = "forbid"`)                                                    | tach                              | same                                                                                  |
-| No import cycles                                                                                                             | BasedPyright `reportImportCycles` | live, whole workspace                                                                 |
-| No `sqlalchemy` / `redis` imports outside repositories, models, `dependencies.py` and `core/` (once added)                   | Ruff `TID251`                     | live, task, pre-commit hook                                                           |
+| Rule                                                                                                                                                                      | Enforced by                                         | Shows up                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Every feature has `__init__.py`, `routers/`, `services/`, `repositories/`, `schemas/`, `constants/`, `utils/`, `dependencies.py`, `tach.domain.toml` — and nothing else   | `tests/test_structure.py`                           | task `backend: test`, pre-commit hook                                                 |
+| Nothing in `src/` outside this layout; every `core/` file has a module in `tach.toml`                                                                                     | `tests/test_structure.py`                           | same                                                                                  |
+| Every feature's `tach.domain.toml` is identical to `features/items/tach.domain.toml`                                                                                      | `tests/test_structure.py`                           | same                                                                                  |
+| Every feature has `tests/features/<name>/test_*.py`                                                                                                                       | `tests/test_structure.py`                           | same                                                                                  |
+| Imports go routers → services → repositories only — no skipping, nothing upward (also inside functions and under `if TYPE_CHECKING:`)                                     | tach (`tach.domain.toml`)                           | live in open files (source `tach`), task `backend: structure (tach)`, pre-commit hook |
+| Another feature is used only through its `services` (or `schemas`); only `*Service` classes leave `services/`                                                             | tach (`tach.domain.toml`, `[[interfaces]]`)         | same                                                                                  |
+| `constants/` imports nothing in the feature and every layer may read it; `utils/` uses only `schemas/` and `constants/`; neither is visible to other features             | tach (`tach.domain.toml`)                           | same                                                                                  |
+| FastAPI/Starlette only in routers, `dependencies.py`, `main.py`, `core/`, `common/`                                                                                       | `tach check-external` (`cannot_depend_on_external`) | task `backend: structure (tach)`, pre-commit hook                                     |
+| `core/` never imports a feature (only `container.py` imports feature providers); `common/` never imports a feature                                                        | tach (`tach.toml`)                                  | live, task, pre-commit hook                                                           |
+| No import cycles                                                                                                                                                          | BasedPyright `reportImportCycles`                   | live, whole workspace                                                                 |
+| No `sqlalchemy` / `redis` imports outside repositories, models, `dependencies.py` and `core/` (once added)                                                                | Ruff `TID251`                                       | live, task, pre-commit hook                                                           |
+| No way around the checks: no `# tach-ignore`, `# noqa: TID…`, `reportImportCycles` ignores, `__import__` / `importlib.import_module`, blanket `# noqa` / `# type: ignore` | `tests/test_structure.py`, Ruff `TID251` + `PGH`    | live (Ruff), task, pre-commit hook                                                    |
 
-- Shared code moves to `common/` only when a second feature needs it — never a feature importing another feature's internals
-- Add a feature by copying `features/items/` (its `tach.domain.toml` comes along), renaming the modules inside the layer folders, then registering its `router` in `main.py` and its provider in `core/container.py`
-- When a check fails, change the code to fit the structure — never loosen `tach.toml`, a `tach.domain.toml`, the structure test or a lint rule to make it pass. A genuinely new kind of folder gets its own tach module entry — ask first
+- Used by one feature → that feature's `constants/` or `utils/`; needed by a second feature → move it to `common/` — never a feature importing another feature's internals
+- Add a feature by copying `features/items/` (its `tach.domain.toml` comes along — never edit it in one feature), renaming the modules inside the layer folders, registering its `router` in `main.py` and its provider in `core/container.py`, and adding `tests/features/<name>/test_*.py`
+- When a check fails, change the code to fit the structure — never loosen `tach.toml`, a `tach.domain.toml`, the structure test or a lint rule to make it pass. A genuinely new kind of folder (e.g. `tasks/`, `listeners/`, `grpc/`) goes into `items`' `tach.domain.toml` (copied to every feature) and `REQUIRED_PACKAGES` in the structure test — ask first
 - After editing files, trust `uv run tach check` over the editor: the Tach extension doesn't see disk changes until the file is reopened or **Tach: Restart Server** runs
 - Not caught by any tool, so keep it by hand: routers hold no business logic
 
@@ -62,9 +68,16 @@ Every layer folder is a package (`__init__.py`) holding one module per use-case 
 9. **SECRETS** — only through `Settings` (`SecretStr`); never hard-coded, logged or committed (`.env` is git-ignored)
 10. **UTC** — store and compare datetimes in UTC; convert to the user's timezone only for display
 11. **NO `api/` FOLDER** — feature routers are registered directly in `main.py`
+12. **PERFORMANCE — RESEARCH FIRST** — before choosing a library, pattern or setting, use the **`grounded-research`** skill to find the fastest production-proven option for the installed versions (never from memory); measure before and after optimizing. Defaults:
+    - `async def` routes await only async I/O — a blocking library goes in a `def` route (FastAPI runs it in a threadpool) or is replaced by an async one; CPU-heavy work goes to a background job or more workers, never into the request
+    - Raw JSON → `Model.model_validate_json(raw)` (not `json.loads` + `model_validate`); a `TypeAdapter` is built once at module level; tagged (discriminated) unions over plain unions
+    - Database: `lazy="raise"` on relationships + `selectinload()` (no N+1); bulk inserts as one list; select only the columns a large list needs; paginate everything
+    - One client/pool per external service for the whole app (dishka `Scope.APP`); `Scope.REQUEST` only for per-request state; Redis `pipeline()` for batches
+    - Production: Granian `--workers` = CPU cores (one worker per container under an orchestrator); stay on the GIL build of Python and off the experimental JIT until their support is production-ready
+    - Speed comes from Pydantic's Rust core, Granian, asyncpg and query design — dishka and SQLAlchemy are chosen for structure, not speed
 
 ## Tests
 
-- `tests/` mirrors `src/app/features/`
+- `tests/` mirrors `src/app/features/` — every feature has `tests/features/<name>/test_*.py` (the structure test checks it)
 - `@pytest.mark.unit` (no DB) or `@pytest.mark.integration` (real DB/Redis, rolled back after each test) — never mock the DB in integration tests
 - Never call external APIs or LLMs in tests — mock them

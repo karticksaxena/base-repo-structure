@@ -1,14 +1,16 @@
-# Layer rules for this feature — copied with the folder when adding a feature.
+# Layer rules for this feature — the same in every feature (tests/test_structure.py checks it).
 # Paths are relative to this feature; "//" paths are absolute. Each path is a folder
 # (e.g. "services" covers services/*.py).
 # NestJS-style: routers -> services -> repositories; another feature only through its
-# services (and its schemas for DTO types).
+# services (and its schemas for DTO types); constants/ and utils/ belong to this feature only.
 
 [[modules]]
 path = "routers"
 depends_on = [
   "services",
   "schemas",
+  "constants",
+  "utils",
   "//src.app.features.*.services",
   "//src.app.features.*.schemas",
 ]
@@ -18,18 +20,39 @@ path = "services"
 depends_on = [
   "repositories",
   "schemas",
+  "constants",
+  "utils",
   "//src.app.features.*.services",
   "//src.app.features.*.schemas",
 ]
+cannot_depend_on_external = ["fastapi", "starlette"] # HTTP stays in routers
 
 [[modules]]
 path = "repositories"
-depends_on = ["schemas"]
+depends_on = ["schemas", "constants", "utils"]
+cannot_depend_on_external = ["fastapi", "starlette"]
 
 [[modules]]
 path = "schemas"
+depends_on = ["constants"]
+cannot_depend_on_external = ["fastapi", "starlette"]
+
+[[modules]]
+path = "constants"
 depends_on = []
+cannot_depend_on_external = ["fastapi", "starlette"]
+
+[[modules]]
+path = "utils"
+depends_on = ["schemas", "constants"]
+cannot_depend_on_external = ["fastapi", "starlette"]
 
 [[modules]]
 path = "dependencies"
-depends_on = ["repositories", "services"]
+depends_on = ["repositories", "services", "constants"]
+
+# Only service classes leave services/: a router can't reach a repository through a
+# service module's imports.
+[[interfaces]]
+expose = [".*Service"]
+from = ["services"]

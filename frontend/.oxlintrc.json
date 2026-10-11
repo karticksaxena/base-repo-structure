@@ -46,8 +46,8 @@
       "error",
       {
         "max": 500,
-        "skipBlankLines": true,
-        "skipComments": true
+        "skipBlankLines": false,
+        "skipComments": false
       }
     ],
     "eslint/max-lines-per-function": [

@@ -70,6 +70,7 @@ select = [
   "PLW",   # pylint warnings
   "ARG",   # unused arguments
   "C90",   # cyclomatic complexity (max-complexity below)
+  "PGH",   # no blanket `# noqa` / `# type: ignore` — name the rule
 ]
 unfixable = ["F841"] # never auto-delete unused variables
 
@@ -83,6 +84,7 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "loguru".msg = "Import `logger` from `src.app.core.logger`."
+"importlib.import_module".msg = "Dynamic imports bypass the layer checks (tach). Import directly."
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
