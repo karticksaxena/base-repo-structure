@@ -121,7 +121,7 @@
     {
       "label": "backend: structure (tach)",
       "type": "shell",
-      "command": "uv run tach check && uv run tach check-external",
+      "command": "uv run tach check; s=$?; uv run tach check-external || s=1; exit $s",
       "options": {
         "cwd": "${workspaceFolder}/backend",
         "env": {
