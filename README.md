@@ -8,7 +8,7 @@ Both apps start bare — add folders and libraries as features need them.
 
 ```bash
 cd backend && uv sync && cp .env.example .env
-uv run uvicorn src.app.main:app --reload     # http://localhost:8000/docs
+uv run granian --interface asgi --reload src.app.main:app   # http://localhost:8000/docs
 
 cd ../frontend && nvm install && nvm use && pnpm install
 pnpm run dev                                 # http://localhost:3000
