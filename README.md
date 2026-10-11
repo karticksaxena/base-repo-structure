@@ -32,6 +32,7 @@ uv run basedpyright                  # types
 uv run flake8 src tests              # functions <= 100 lines
 uv run pylint src tests              # files <= 500 lines
 uv run tach check                    # routers -> services -> repositories
+uv run tach check-external           # imports match declared dependencies
 uv run pytest                        # tests + feature structure
 uv run pip-audit                     # dependency vulnerabilities
 

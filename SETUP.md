@@ -10,7 +10,7 @@ Production-ready linting, formatting, type-checking, size limits, structure chec
 
 1. **Three-layer rule** — rules live in config files (`backend/pyproject.toml`, `backend/tach.toml`, `frontend/.oxlintrc.json`, `frontend/.prettierrc`, `frontend/tsconfig.json`); editor wiring **and format-on-save** live in the committed `.vscode/settings.json`; the only user setting is `files.autoSave`.
 2. **One package manager per side** — `uv` for Python (never pip, poetry or a bare `python -m venv`); `pnpm` for the frontend (never npm or yarn). Commit `uv.lock`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`.
-3. **Latest stable versions, never pinned in docs** — `uv add <pkg>` / `pnpm add <pkg>@latest` without a version; never a prerelease. If the newest major of one tool breaks another, use the newest major that passes [Verify CLI](#verify-cli) **and** [Verify editor](#verify-editor-smoke-test--delete-after), and record why in [Troubleshooting](#troubleshooting) (current case: TypeScript stays on 6).
+3. **Latest stable versions that work together, never pinned in docs** — install with `uv add <pkg>` / `pnpm add <pkg>@latest` (no version), never a prerelease (`rc`, `beta`, `canary`, `next`, `dev`; check `pnpm view <pkg> dist-tags` / PyPI). When setting up or refreshing a project, follow [Keeping versions current](#keeping-versions-current): upgrade everything, run every check, and if the newest major of one tool breaks another, hold that one package at the newest major that passes and record why there (current holds: TypeScript 6, `@types/node` at the Node LTS major).
 4. **Bare defaults** — backend = `main.py` + `core/` + one sample feature; frontend = `create-next-app` default. Add a library only when a feature needs it ([Libraries by use case](#libraries-by-use-case)).
 5. **Size limits are lint rules, not advice** — files ≤ **500** lines, functions ≤ **100** lines, as **errors**, in backend and frontend. When one fires, split the file or function — never raise the limit, never add a disable comment.
 6. **Structure is a lint rule** — every backend feature has the same files (`tests/test_structure.py`) and imports only in the routers → services → repositories direction (tach, `backend/tach.toml`). A new kind of module gets its own tach entry; never loosen `root_module = "forbid"`.
@@ -130,7 +130,7 @@ Keep `.python-version`, `requires-python`, `pythonVersion` (BasedPyright) and `t
 ### 2. Dependencies
 
 ```bash
-uv add fastapi granian pydantic-settings loguru dishka
+uv add fastapi pydantic pydantic-settings granian loguru dishka
 uv add --dev ruff basedpyright pytest pytest-asyncio httpx2 \
   flake8 flake8-max-function-length flake8-pyproject pylint tach pip-audit 'granian[reload]'
 ```
@@ -253,6 +253,9 @@ source_roots = ["."]
 exclude = ["tests", "**/__pycache__", ".venv"]
 root_module = "forbid"                         # every source file must belong to a module below
 
+[external]
+exclude = ["granian"] # the ASGI server is run as a command, never imported
+
 [[modules]]
 path = "src.app.main"
 depends_on = [
@@ -329,6 +332,7 @@ Notes (each verified by running the tool):
 - **flake8** runs only `MFL`. `flake8-max-function-length` counts code lines only (it skips the `def` line, docstrings, blank lines and comments — the same as oxlint's `skipBlankLines` / `skipComments`).
 - **pylint** runs only `too-many-lines` (`C0302`). It counts **every** line, blank and comment lines included, so the Python file limit is slightly stricter than the frontend's. Ruff has no line-count rule (checked in Ruff 0.17: only `PLR0915` statement counts and `C901` complexity).
 - **tach** (rules in `tach.toml`, next section) mirrors a production NestJS layout — feature modules (`features/`), app-wide setup (`core/`, like Nest's `config/` + app module), shared code (`common/`, Nest's `common/`/`shared/`) — and checks imports between them: a router importing a repository fails (`Module 'src.app.features.items.routers' cannot depend on 'src.app.features.items.repositories'`), a repository importing a service fails, and with `root_module = "forbid"` a file that matches no module (e.g. `features/items/utils.py`) fails as `Module '<root>' cannot depend on …`. Another feature's repositories, routers or dependencies are rejected too (`Module 'src.app.features.items.services' cannot depend on 'src.app.features.orders.repositories'`), through the per-feature domain files. Verified against NestJS's rules with 40 import directions (own/other feature, every layer folder, a second file in the same layer, `core/`, `common/`, `main`, stray files): 40/40 behave like Nest, from the CLI and from the tach language server; the cross-feature error also shows live in VS Code's Problems tab (verified).
+- **`tach check-external`** compares imports with `pyproject.toml`: a package imported but not declared (e.g. `pydantic`, which only arrives through FastAPI) or declared but never imported fails. `granian` is excluded in `tach.toml` (`[external] exclude`) because it runs as a command. The tach extension shows the same errors live (`Dependency 'pydantic' is not declared in package 'backend'`).
 - **pytest 9** reads the native `[tool.pytest]` table (header shows `configfile: pyproject.toml`, `asyncio: mode=Mode.AUTO`).
 
 ### 4. Structure (NestJS-style feature modules)
@@ -672,7 +676,7 @@ The service keeps returning Pydantic schemas: it maps models to `ItemResponse`, 
 Wiring checklist:
 
 - `uv add "sqlalchemy[asyncio]" asyncpg` (and `alembic`); `database_url: SecretStr` in `Settings` (`postgresql+asyncpg://…` in `.env`, add it to `.env.example`); add `DatabaseProvider()` to `create_container()`
-- `backend/tach.toml`: add a module `src.app.core.database` (`depends_on = []`) and add `"src.app.core.database"` to `src.app.core.container`'s `depends_on`
+- `backend/tach.toml`: add `"asyncpg"` (and `"aiosqlite"` if used for tests) to `[external] exclude` — database drivers are loaded from the URL, never imported, so `tach check-external` would report them as unused (verified); add a module `src.app.core.database` (`depends_on = []`) and add `"src.app.core.database"` to `src.app.core.container`'s `depends_on`
 - Each feature with tables: add a `models/` package and extend its `tach.domain.toml` (repositories and services may use `models`):
 
 ```toml
@@ -924,6 +928,7 @@ uv run basedpyright
 uv run flake8 src tests
 uv run pylint src tests
 uv run tach check
+uv run tach check-external
 uv run pytest
 uv run pip-audit
 ```
@@ -1239,7 +1244,7 @@ Why each line (setting names checked in each extension's `package.json`):
 | `backend: basedpyright`              | `uv run basedpyright`                                                                       | `basedpyright` (absolute paths)                                                                   |
 | `backend: function length (flake8)`  | `uv run flake8 --color never src tests`                                                     | `flake8`                                                                                          |
 | `backend: file length (pylint)`      | `uv run pylint src tests --score=n --msg-template='{path}:{line}:{column}: {msg_id} {msg}'` | `pylint`                                                                                          |
-| `backend: structure (tach)`          | `uv run tach check`                                                                         | `tach` (`[FAIL] file:line:` when piped, `❌ file:line:` in a terminal — the pattern accepts both) |
+| `backend: structure (tach)`          | `uv run tach check && uv run tach check-external`                                           | `tach` (`[FAIL] file:line:` when piped, `❌ file:line:` in a terminal — the pattern accepts both) |
 | `backend: format`                    | `uv run ruff format --check src tests`                                                      | —                                                                                                 |
 | `backend: test`                      | `uv run pytest --tb=line`                                                                   | `pytest` (failing assertion line)                                                                 |
 | `frontend: dev`                      | `pnpm run dev` (frontend)                                                                   | —                                                                                                 |
@@ -1291,7 +1296,7 @@ Restarts are a setup-time thing only: after changing user settings or (un)instal
 
 ```bash
 cd backend && uv run ruff check src tests && uv run ruff format --check src tests && uv run basedpyright \
-  && uv run flake8 src tests && uv run pylint src tests && uv run tach check && uv run pytest && uv run pip-audit
+  && uv run flake8 src tests && uv run pylint src tests && uv run tach check && uv run tach check-external && uv run pytest && uv run pip-audit
 cd ../frontend && pnpm run lint && pnpm run typecheck && pnpm run format:check \
   && pnpm run test && pnpm run build && pnpm run audit
 ```
@@ -1414,6 +1419,31 @@ Then ask the user to close the deleted files' tabs, run **TypeScript: Restart TS
 
 ---
 
+## Keeping versions current
+
+Run at setup and whenever refreshing the template (commands verified):
+
+```bash
+cd backend
+uv tree --outdated --depth 1     # direct dependencies with a newer release
+uv lock --upgrade && uv sync     # newest versions that satisfy every constraint together
+cd ../frontend
+pnpm outdated                    # current vs latest
+pnpm update                      # newest versions inside the package.json ranges
+pnpm add <pkg>@latest            # move a package to a new major on purpose
+```
+
+Then run [Verify CLI](#verify-cli) and the [editor smoke test](#verify-editor-smoke-test--delete-after). `uv lock --upgrade` only picks versions that satisfy every package's requirements together; `pnpm` respects peer dependencies. A newest major that resolves but breaks a check (types, lint, build, editor) is held back:
+
+| Held back     | At                  | Why                                                                                                                                                    | Revisit when                                                      |
+| ------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `typescript`  | 6                   | TypeScript 7 passes `tsc`, oxlint and `next build`, but ships no `lib/tsserver.js`, so VS Code's project diagnostics and the Next.js plugin don't work | VS Code's built-in TypeScript supports 7 with project diagnostics |
+| `@types/node` | Node LTS major (24) | must match the Node version in use (`.nvmrc` = `lts/*`), not the newest Node                                                                           | the next Node LTS                                                 |
+
+Python is the newest stable CPython (`.python-version`, `requires-python`, `pythonVersion`, Ruff `target-version` — keep all four equal); upgrade uv first (`brew upgrade uv`), since its list of Python builds ships with it.
+
+---
+
 ## Git pre-commit hook
 
 `.githooks/pre-commit` runs the fast checks (every backend check, frontend lint/typecheck/format/test) and blocks the commit when one fails. Git doesn't enable committed hooks by itself — once per clone:
@@ -1469,6 +1499,7 @@ There is no CI workflow in this template.
 
 - [ ] **1.** Copy this repo (or follow Backend 1–8 + Frontend)
 - [ ] **2.** `cd backend && uv sync`; `cd frontend && pnpm install`; `nvm install && nvm use` in `frontend/`
+- [ ] **2b.** [Keeping versions current](#keeping-versions-current): upgrade to the newest compatible versions, record any hold
 - [ ] **3.** Install the VS Code extensions, uninstall Pylance → Reload Window → **Select Interpreter** → `backend/.venv`
 - [ ] **4.** User settings: `files.autoSave: "onFocusChange"`, `pylint.lintOnChange: true`; trust the folder
 - [ ] **4b.** `git config core.hooksPath .githooks` (pre-commit hook)
@@ -1510,7 +1541,7 @@ There is no CI workflow in this template.
 
 Before marking tooling setup done, confirm:
 
-1. Backend: `ruff check`, `ruff format --check`, `basedpyright`, `flake8`, `pylint`, `tach check`, `pytest`, `pip-audit` all pass; the server boots and `POST /items` works
+1. Backend: `ruff check`, `ruff format --check`, `basedpyright`, `flake8`, `pylint`, `tach check`, `tach check-external`, `pytest`, `pip-audit` all pass; the server boots and `POST /items` works
 2. Frontend: `lint`, `typecheck`, `format:check`, `test`, `build`, `audit` all pass
 3. Editor smoke test (Steps 0–4 above): every row of the backend and frontend tables appears in Problems — as errors where listed — including the never-opened `smoke_closed.py`, the tach error on `routers/items.py`, and all eight `(task)` sources in the user's screenshot; fix/format on save confirmed on disk; the pre-commit hook refused the smoke commit; all smoke files removed and `getDiagnostics` clean
 4. Size limits are errors in both: `max-function-length = 100` + `max-module-lines = 500` (backend), `max-lines-per-function` 100 + `max-lines` 500 (frontend)

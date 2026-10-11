@@ -9,6 +9,9 @@ source_roots = ["."]
 exclude = ["tests", "**/__pycache__", ".venv"]
 root_module = "forbid"                         # every source file must belong to a module below
 
+[external]
+exclude = ["granian"] # the ASGI server is run as a command, never imported
+
 [[modules]]
 path = "src.app.main"
 depends_on = [
