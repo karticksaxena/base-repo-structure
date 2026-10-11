@@ -4,8 +4,8 @@ from dishka import (
     provide,  # pyright: ignore[reportUnknownVariableType] -- dishka types it with Any
 )
 
-from src.app.features.items.repository import ItemRepository
-from src.app.features.items.service import ItemService
+from src.app.features.items.repositories.items import ItemRepository
+from src.app.features.items.services.items import ItemService
 
 
 class ItemsProvider(Provider):

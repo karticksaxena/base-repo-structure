@@ -6,9 +6,10 @@ requires-python = ">=3.15"
 dependencies = [
   "dishka>=1.10.1",
   "fastapi>=0.143.0",
+  "granian>=2.8.4",
   "loguru>=0.7.3",
+  "pydantic>=2.14.0",
   "pydantic-settings>=2.15.0",
-  "uvicorn>=0.54.0",
 ]
 
 [dependency-groups]
@@ -17,6 +18,7 @@ dev = [
   "flake8>=7.4.1",
   "flake8-max-function-length>=0.10.0",
   "flake8-pyproject>=1.2.4",
+  "granian[reload]>=2.8.4",
   "httpx2>=2.13.1",
   "pip-audit>=2.10.1",
   "pylint>=4.1.2",
@@ -68,6 +70,7 @@ select = [
   "PLW",   # pylint warnings
   "ARG",   # unused arguments
   "C90",   # cyclomatic complexity (max-complexity below)
+  "PGH",   # no blanket `# noqa` / `# type: ignore` — name the rule
 ]
 unfixable = ["F841"] # never auto-delete unused variables
 
@@ -81,6 +84,7 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "loguru".msg = "Import `logger` from `src.app.core.logger`."
+"importlib.import_module".msg = "Dynamic imports bypass the layer checks (tach). Import directly."
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -113,6 +117,7 @@ addopts = [
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto" # pytest-asyncio: run async def tests without a marker
+filterwarnings = ["error"] # a deprecation (e.g. Pydantic v1-style `class Config`) fails the tests
 markers = [
   "unit: isolated tests, no DB/Redis dependency",
   "integration: tests that hit a real DB/Redis instance",

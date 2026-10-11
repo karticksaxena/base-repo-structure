@@ -10,7 +10,7 @@ Follow **`../SETUP.md`**. Lint rules live in `.oxlintrc.json`, format rules in `
 
 Next.js (App Router, `src/`, Turbopack) · React · Tailwind CSS · TypeScript · Vitest + React Testing Library · `pnpm` (never npm/yarn) · Node LTS (`.nvmrc`)
 
-Added only when a feature needs them (`../SETUP.md` → Libraries by use case): **shadcn/ui** (all UI) · **Zod** (validation) · **CopilotKit** over AG-UI + A2UI (agent UI)
+Added only when a feature needs them (`../SETUP.md` → Frontend libraries by use case): **shadcn/ui** (all UI) · **Zod** (validation) · **CopilotKit** over AG-UI + A2UI (agent UI)
 
 Always the latest stable, mutually compatible versions — never prereleases, never versions hardcoded in docs. The `@AGENTS.md` block above is maintained by `next dev` — keep it. For Next.js APIs, read `node_modules/next/dist/docs/` first; it may differ from training data.
 
