@@ -115,6 +115,7 @@ addopts = [
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto" # pytest-asyncio: run async def tests without a marker
+filterwarnings = ["error"] # a deprecation (e.g. Pydantic v1-style `class Config`) fails the tests
 markers = [
   "unit: isolated tests, no DB/Redis dependency",
   "integration: tests that hit a real DB/Redis instance",

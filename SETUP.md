@@ -240,6 +240,7 @@ addopts = [
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto" # pytest-asyncio: run async def tests without a marker
+filterwarnings = ["error"] # a deprecation (e.g. Pydantic v1-style `class Config`) fails the tests
 markers = [
   "unit: isolated tests, no DB/Redis dependency",
   "integration: tests that hit a real DB/Redis instance",
@@ -389,6 +390,8 @@ Once a database exists, each feature also gets `models/` (SQLAlchemy models — 
 - `BaseSchema` — every request/response schema inherits it: unknown fields are rejected (`extra="forbid"`, like Nest's `ValidationPipe` `whitelist` + `forbidNonWhitelisted`), strings are trimmed
 - `Page[T]` — every list endpoint returns `{"items": [...], "total": …, "limit": …, "offset": …}`, so the frontend handles every list the same way
 - `Limit` / `Offset` — the list endpoint's query parameters (`limit` 1–100, `offset` ≥ 0), declared once
+
+Responses: routes declare a Pydantic return type and no `response_class`, so FastAPI serializes with Pydantic in Rust (2x+ faster than `JSONResponse`; `ORJSONResponse`/`UJSONResponse` are deprecated) — verified: both routes take that path. FastAPI rejects a JSON body without `Content-Type: application/json` (`strict_content_type`, on by default). Pydantic v1-style code fails the checks: `.dict()`, `.parse_obj()`, `ORJSONResponse` are BasedPyright `reportDeprecated` warnings (fail with `failOnWarnings`), `class Config` fails pytest (`filterwarnings = ["error"]`) — verified.
 
 Rules the tools enforce (details: `backend/CLAUDE.md` → NestJS-style structure):
 
