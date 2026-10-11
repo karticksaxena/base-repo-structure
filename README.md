@@ -1,6 +1,6 @@
 # base-repo-structure
 
-Starter template: **FastAPI** backend (Python, `uv`, NestJS-style feature modules, dishka DI, loguru) and a **Next.js** frontend (oxlint, Prettier, Vitest). Linting, types, size limits (files ≤ 500 lines, functions ≤ 100) and the router → service → repository structure are enforced in the CLI and in VS Code's Problems panel. The TypeScript-backend twin is `base-repo-ts` (NestJS).
+Starter template: **FastAPI** backend (Python, `uv`, NestJS-style feature modules, dishka DI, loguru) and a **Next.js** frontend (oxlint, Prettier, Vitest). Linting, types, size limits (files ≤ 500 lines, functions ≤ 100) and the NestJS-style routers → services → repositories structure are enforced in the CLI and in VS Code's Problems panel. The TypeScript-backend twin is `base-repo-ts` (NestJS).
 
 Both apps start bare — add folders and libraries as features need them.
 
@@ -31,7 +31,7 @@ uv run ruff format --check src tests # format
 uv run basedpyright                  # types
 uv run flake8 src tests              # functions <= 100 lines
 uv run pylint src tests              # files <= 500 lines
-uv run tach check                    # router -> service -> repository
+uv run tach check                    # routers -> services -> repositories
 uv run pytest                        # tests + feature structure
 uv run pip-audit                     # dependency vulnerabilities
 
@@ -53,7 +53,7 @@ backend/src/app/
   main.py               # app factory: logger, routers, dishka
   core/                 # config, logger, container
   common/               # shared by 2+ features (errors, utils) — never imports a feature
-  features/<name>/      # __init__ · router · service · repository · schemas · dependencies · tach.domain.toml
+  features/<name>/      # routers/ · services/ · repositories/ · schemas/ · dependencies.py · tach.domain.toml
 frontend/src/app/       # Next.js App Router
 ```
 

@@ -13,7 +13,7 @@ Production-ready linting, formatting, type-checking, size limits, structure chec
 3. **Latest stable versions, never pinned in docs** — `uv add <pkg>` / `pnpm add <pkg>@latest` without a version; never a prerelease. If the newest major of one tool breaks another, use the newest major that passes [Verify CLI](#verify-cli) **and** [Verify editor](#verify-editor-smoke-test--delete-after), and record why in [Troubleshooting](#troubleshooting) (current case: TypeScript stays on 6).
 4. **Bare defaults** — backend = `main.py` + `core/` + one sample feature; frontend = `create-next-app` default. Add a library only when a feature needs it ([Libraries by use case](#libraries-by-use-case)).
 5. **Size limits are lint rules, not advice** — files ≤ **500** lines, functions ≤ **100** lines, as **errors**, in backend and frontend. When one fires, split the file or function — never raise the limit, never add a disable comment.
-6. **Structure is a lint rule** — every backend feature has the same files (`tests/test_structure.py`) and imports only in the router → service → repository direction (tach, `backend/tach.toml`). A new kind of module gets its own tach entry; never loosen `root_module = "forbid"`.
+6. **Structure is a lint rule** — every backend feature has the same files (`tests/test_structure.py`) and imports only in the routers → services → repositories direction (tach, `backend/tach.toml`). A new kind of module gets its own tach entry; never loosen `root_module = "forbid"`.
 7. **Check the editor, not just the CLI** — the smoke tests must show the same problems in the VS Code Problems panel as the CLI. A setting that was never seen working in the editor is a guess.
 8. **Install the VS Code extensions yourself** ([Required extensions](#required-vs-code-extensions)) and uninstall Pylance; then ask the user to reload the window — batch every reload/open request into one message.
 9. **Do not use** settings that don't exist or are deprecated: `ruff.cwd`, `ruff.lint.run`, `ruff.lint.select` / `ruff.lineLength` / `ruff.configuration` (they override `pyproject.toml`), `python.analysis.*` (Pylance only), `cursorpyright.*`, `typescript.tsdk` / `typescript.enablePromptUseWorkspaceTsdk` (use `js/ts.tsdk.path` / `js/ts.tsdk.promptToUseWorkspaceVersion`).
@@ -22,20 +22,20 @@ Production-ready linting, formatting, type-checking, size limits, structure chec
 
 ### What runs where (verified)
 
-| Check                                | Tool                                                      | Rules in                           | Problems panel while editing                             | Whole-workspace scan                     |
-| ------------------------------------ | --------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------- | ---------------------------------------- |
-| Python lint                          | Ruff                                                      | `pyproject.toml`                   | open files                                               | task `backend: ruff`                     |
-| Python format + import order         | Ruff (format on save)                                     | `pyproject.toml`                   | on save                                                  | task `backend: format`                   |
-| Python types                         | BasedPyright (`recommended`)                              | `pyproject.toml`                   | **every file**, open or not                              | task `backend: basedpyright`             |
-| Function ≤ 100 lines (py)            | flake8 + `flake8-max-function-length`                     | `pyproject.toml` (`[tool.flake8]`) | open files                                               | task `backend: function length (flake8)` |
-| File ≤ 500 lines (py)                | pylint, only `too-many-lines`                             | `pyproject.toml`                   | open files                                               | task `backend: file length (pylint)`     |
-| Layers router → service → repository | tach                                                      | `backend/tach.toml`                | open files (Tach extension)                              | task `backend: structure (tach)`         |
-| Feature has all files                | pytest `tests/test_structure.py`                          | the test                           | —                                                        | task `backend: test`                     |
-| No import cycles                     | BasedPyright `reportImportCycles` (part of `recommended`) | `pyproject.toml`                   | **every file**, open or not                              | task `backend: basedpyright`             |
-| TS/TSX lint, size limits             | oxlint (type-aware)                                       | `frontend/.oxlintrc.json`          | open files                                               | task `frontend: lint`                    |
-| TS types                             | `tsc` / VS Code TypeScript                                | `frontend/tsconfig.json`           | every file of a project once one of its files was opened | task `frontend: typecheck`               |
-| Format JS/TS/JSON/CSS/MD/YAML        | Prettier (format on save)                                 | `frontend/.prettierrc`             | on save                                                  | task `frontend: format`                  |
-| Format TOML                          | Even Better TOML                                          | defaults                           | on save                                                  | —                                        |
+| Check                                    | Tool                                                      | Rules in                           | Problems panel while editing                             | Whole-workspace scan                     |
+| ---------------------------------------- | --------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------- | ---------------------------------------- |
+| Python lint                              | Ruff                                                      | `pyproject.toml`                   | open files                                               | task `backend: ruff`                     |
+| Python format + import order             | Ruff (format on save)                                     | `pyproject.toml`                   | on save                                                  | task `backend: format`                   |
+| Python types                             | BasedPyright (`recommended`)                              | `pyproject.toml`                   | **every file**, open or not                              | task `backend: basedpyright`             |
+| Function ≤ 100 lines (py)                | flake8 + `flake8-max-function-length`                     | `pyproject.toml` (`[tool.flake8]`) | open files                                               | task `backend: function length (flake8)` |
+| File ≤ 500 lines (py)                    | pylint, only `too-many-lines`                             | `pyproject.toml`                   | open files                                               | task `backend: file length (pylint)`     |
+| Layers routers → services → repositories | tach                                                      | `backend/tach.toml`                | open files (Tach extension)                              | task `backend: structure (tach)`         |
+| Feature has all files                    | pytest `tests/test_structure.py`                          | the test                           | —                                                        | task `backend: test`                     |
+| No import cycles                         | BasedPyright `reportImportCycles` (part of `recommended`) | `pyproject.toml`                   | **every file**, open or not                              | task `backend: basedpyright`             |
+| TS/TSX lint, size limits                 | oxlint (type-aware)                                       | `frontend/.oxlintrc.json`          | open files                                               | task `frontend: lint`                    |
+| TS types                                 | `tsc` / VS Code TypeScript                                | `frontend/tsconfig.json`           | every file of a project once one of its files was opened | task `frontend: typecheck`               |
+| Format JS/TS/JSON/CSS/MD/YAML            | Prettier (format on save)                                 | `frontend/.prettierrc`             | on save                                                  | task `frontend: format`                  |
+| Format TOML                              | Even Better TOML                                          | defaults                           | on save                                                  | —                                        |
 
 VS Code has **no global "lint the whole workspace" setting** — each extension decides. Only BasedPyright (`basedpyright.analysis.diagnosticMode: "workspace"`) and TypeScript (`js/ts.tsserver.experimental.enableProjectDiagnostics`) scan files you haven't opened. For everything else, **Tasks → `check: all`** runs every CLI check and puts every file's problems in the Problems panel. **Empty Problems panel = clean code** when the CLI passes.
 
@@ -242,13 +242,13 @@ markers = [
 `backend/tach.toml` — the app-level layer rules (`main`, `core/`). They live in tach's own file, not `[tool.tach]` in `pyproject.toml`: the VS Code extension starts `tach server -c backend/tach.toml` from the repo root, and `-c` reads the whole file as tach config (`pyproject.toml` fails with `unknown field dependency-groups`). The CLI (`uv run tach check` in `backend/`) finds `tach.toml` on its own.
 
 ```toml
-# NestJS-style layers: router -> service -> repository.
+# NestJS-style layers: routers -> services -> repositories.
 # Its own file (not [tool.tach] in pyproject.toml): the VS Code extension starts
 # `tach server -c backend/tach.toml` from the repo root, and `-c` reads a whole file
 # as tach config.
 #
-# Feature layers (router -> service -> repository, and another feature only through its
-# service) live next to each feature: src/app/features/<name>/tach.domain.toml.
+# Feature layers (routers -> services -> repositories, and another feature only through its
+# services) live next to each feature: src/app/features/<name>/tach.domain.toml.
 source_roots = ["."]
 exclude = ["tests", "**/__pycache__", ".venv"]
 root_module = "forbid"                         # every source file must belong to a module below
@@ -258,7 +258,7 @@ path = "src.app.main"
 depends_on = [
   "src.app.core.container",
   "src.app.core.logger",
-  "src.app.features.*.router",
+  "src.app.features.*.routers",
 ]
 
 [[modules]]
@@ -281,34 +281,35 @@ path = "src.app.core.container"
 depends_on = ["src.app.features.*.dependencies"]
 ```
 
-`src/app/features/<name>/tach.domain.toml` — each feature's own layer rules, copied with the folder. A tach _domain_ file: paths are relative to the feature, `//` paths are absolute. Because each feature has its own file, "same feature" is expressible: a service may use **its own** repository but only **another feature's service or schemas** — exactly what a Nest module exports. `test_structure.py` requires the file in every feature.
+`src/app/features/<name>/tach.domain.toml` — each feature's own layer rules, copied with the folder. A tach _domain_ file: paths are relative to the feature, `//` paths are absolute. Because each feature has its own file, "same feature" is expressible: services may use **their own** repositories but only **another feature's services or schemas** — exactly what a Nest module exports. `test_structure.py` requires the file in every feature.
 
 ```toml
 # Layer rules for this feature — copied with the folder when adding a feature.
-# Paths are relative to this feature; "//" paths are absolute.
-# NestJS-style: router -> service -> repository; another feature only through its
-# service (and its schemas for DTO types).
+# Paths are relative to this feature; "//" paths are absolute. Each path is a folder
+# (e.g. "services" covers services/*.py).
+# NestJS-style: routers -> services -> repositories; another feature only through its
+# services (and its schemas for DTO types).
 
 [[modules]]
-path = "router"
+path = "routers"
 depends_on = [
-  "service",
+  "services",
   "schemas",
-  "//src.app.features.*.service",
+  "//src.app.features.*.services",
   "//src.app.features.*.schemas",
 ]
 
 [[modules]]
-path = "service"
+path = "services"
 depends_on = [
-  "repository",
+  "repositories",
   "schemas",
-  "//src.app.features.*.service",
+  "//src.app.features.*.services",
   "//src.app.features.*.schemas",
 ]
 
 [[modules]]
-path = "repository"
+path = "repositories"
 depends_on = ["schemas"]
 
 [[modules]]
@@ -317,7 +318,7 @@ depends_on = []
 
 [[modules]]
 path = "dependencies"
-depends_on = ["repository", "service"]
+depends_on = ["repositories", "services"]
 ```
 
 Notes (each verified by running the tool):
@@ -327,7 +328,7 @@ Notes (each verified by running the tool):
 - **`banned-api`** makes `from loguru import logger` an error everywhere except `core/logger.py`.
 - **flake8** runs only `MFL`. `flake8-max-function-length` counts code lines only (it skips the `def` line, docstrings, blank lines and comments — the same as oxlint's `skipBlankLines` / `skipComments`).
 - **pylint** runs only `too-many-lines` (`C0302`). It counts **every** line, blank and comment lines included, so the Python file limit is slightly stricter than the frontend's. Ruff has no line-count rule (checked in Ruff 0.17: only `PLR0915` statement counts and `C901` complexity).
-- **tach** (rules in `tach.toml`, next section) mirrors a production NestJS layout — feature modules (`features/`), app-wide setup (`core/`, like Nest's `config/` + app module), shared code (`common/`, Nest's `common/`/`shared/`) — and checks imports between them: a router importing a repository fails (`Module 'src.app.features.items.router' cannot depend on 'src.app.features.items.repository'`), a repository importing a service fails, and with `root_module = "forbid"` a file that matches no module (e.g. `features/items/utils.py`) fails as `Module '<root>' cannot depend on …`. Another feature's repository, router or dependencies are rejected too (`Module 'src.app.features.items.service' cannot depend on 'src.app.features.orders.repository'`), through the per-feature domain files. Verified against NestJS's rules with 39 import directions (own/other feature, every layer, `core/`, `common/`, `main`, stray files): 39/39 behave like Nest, from the CLI and from the tach language server; the cross-feature error also shows live in VS Code's Problems tab (verified).
+- **tach** (rules in `tach.toml`, next section) mirrors a production NestJS layout — feature modules (`features/`), app-wide setup (`core/`, like Nest's `config/` + app module), shared code (`common/`, Nest's `common/`/`shared/`) — and checks imports between them: a router importing a repository fails (`Module 'src.app.features.items.routers' cannot depend on 'src.app.features.items.repositories'`), a repository importing a service fails, and with `root_module = "forbid"` a file that matches no module (e.g. `features/items/utils.py`) fails as `Module '<root>' cannot depend on …`. Another feature's repositories, routers or dependencies are rejected too (`Module 'src.app.features.items.services' cannot depend on 'src.app.features.orders.repositories'`), through the per-feature domain files. Verified against NestJS's rules with 40 import directions (own/other feature, every layer folder, a second file in the same layer, `core/`, `common/`, `main`, stray files): 40/40 behave like Nest, from the CLI and from the tach language server; the cross-feature error also shows live in VS Code's Problems tab (verified).
 - **pytest 9** reads the native `[tool.pytest]` table (header shows `configfile: pyproject.toml`, `asyncio: mode=Mode.AUTO`).
 
 ### 4. Structure (NestJS-style feature modules)
@@ -335,38 +336,54 @@ Notes (each verified by running the tool):
 ```
 backend/
 ├── pyproject.toml          ← every rule except layers
-├── tach.toml               ← app-level layer rules (main, core); features have their own
+├── tach.toml               ← app-level layer rules (main, core, common); features have their own
 ├── .python-version
 ├── .env.example            ← settings to copy into .env (LOG_LEVEL, LOG_FORMAT)
 ├── uv.lock
 ├── src/app/
 │   ├── main.py             ← create_app(): logger, routers, dishka (Nest AppModule + main.ts)
-│   ├── core/
+│   ├── core/               ← app-wide setup — never imports a feature (only container.py imports feature providers)
 │   │   ├── config.py       ← Settings (pydantic-settings, reads .env)
 │   │   ├── logger.py       ← loguru setup; the only place loguru is imported
 │   │   └── container.py    ← dishka container: every feature's Provider
-│   ├── common/             ← code shared by 2+ features (NestJS common/): errors, guards, utils — never imports a feature
+│   ├── common/             ← code shared by 2+ features (NestJS common/) — never imports a feature
 │   └── features/
-│       └── items/          ← sample feature — copy it for a new one
+│       └── items/          ← sample feature (NestJS module) — copy it for a new one
 │           ├── __init__.py
-│           ├── router.py       HTTP only            (Nest controller)
-│           ├── service.py      business logic       (Nest service)
-│           ├── repository.py   data access          (in-memory until a DB is added)
-│           ├── schemas.py      Pydantic DTOs        (Nest DTOs)
-│           ├── dependencies.py dishka Provider      (Nest module providers)
-│           └── tach.domain.toml layer rules         (copied with the folder)
+│           ├── routers/        HTTP only — Nest controllers; __init__.py combines them into one `router`
+│           │   ├── __init__.py
+│           │   └── items.py
+│           ├── services/       business logic — Nest services
+│           │   ├── __init__.py
+│           │   └── items.py
+│           ├── repositories/   data access (DB/Redis) — the only layer that touches storage
+│           │   ├── __init__.py
+│           │   └── items.py    (in-memory until a database is added)
+│           ├── schemas/        Pydantic request/response models — Nest DTOs
+│           │   ├── __init__.py
+│           │   └── items.py
+│           ├── dependencies.py dishka Provider — Nest module `providers`
+│           └── tach.domain.toml this feature's layer rules (copied with the folder)
 └── tests/
     ├── conftest.py         ← TestClient fixture (fresh app + container per test)
-    ├── test_structure.py   ← fails when a feature folder misses a required file
+    ├── test_structure.py   ← fails when a feature misses a layer folder or file
     └── features/items/     ← mirrors src/app/features/
 ```
 
+Once a database exists, each feature also gets `models/` (SQLAlchemy models — Nest entities); see [Database pattern](#7-libraries-by-use-case).
+
+Rules the tools enforce (details: `backend/CLAUDE.md` → NestJS-style structure):
+
+- Every feature has `__init__.py`, `routers/`, `services/`, `repositories/`, `schemas/` (each a package with `__init__.py`), `dependencies.py` and `tach.domain.toml` — `tests/test_structure.py`
+- Imports go routers → services → repositories only; another feature is reachable only through its `services` (and `schemas` for DTO types); files in the same layer folder may import each other; any file outside these folders is rejected — tach
+- One module per use-case area inside a layer folder (`services/items.py`, `services/item_exports.py`); split a file before it reaches 500 lines
+
 Adding a feature `orders`:
 
-1. Copy `src/app/features/items/` to `src/app/features/orders/` (its `tach.domain.toml` comes along), rename the classes.
-2. Register the router in `main.py` (`app.include_router(orders_router)`) and the provider in `core/container.py`.
+1. Copy `src/app/features/items/` to `src/app/features/orders/` (its `tach.domain.toml` comes along); rename the files inside the layer folders (`routers/items.py` → `routers/orders.py`, …) and the classes; point `routers/__init__.py` at the new router module.
+2. Register the feature's `router` in `main.py` (`from src.app.features.orders.routers import router as orders_router` → `app.include_router(orders_router)`) and its provider in `core/container.py`.
 3. Add `tests/features/orders/`.
-4. Run [Verify CLI](#verify-cli). Tach already covers the new folder through the `features.*` globs.
+4. Run [Verify CLI](#verify-cli). tach already covers the new folder through the `features.*` globs.
 
 ### 5. Dependency injection — dishka
 
@@ -379,8 +396,8 @@ from dishka import (
     provide,  # pyright: ignore[reportUnknownVariableType] -- dishka types it with Any
 )
 
-from src.app.features.items.repository import ItemRepository
-from src.app.features.items.service import ItemService
+from src.app.features.items.repositories.items import ItemRepository
+from src.app.features.items.services.items import ItemService
 
 
 class ItemsProvider(Provider):
@@ -408,7 +425,7 @@ def create_container() -> AsyncContainer:
     return make_async_container(FastapiProvider(), ItemsProvider())
 ```
 
-`router.py` — `DishkaRoute` injects `FromDishka[...]` parameters without an `@inject` decorator per route:
+`routers/items.py` — `DishkaRoute` injects `FromDishka[...]` parameters without an `@inject` decorator per route:
 
 ```python
 router = APIRouter(prefix="/items", tags=["items"], route_class=DishkaRoute)
@@ -417,6 +434,24 @@ router = APIRouter(prefix="/items", tags=["items"], route_class=DishkaRoute)
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_item(data: ItemCreate, service: FromDishka[ItemService]) -> ItemResponse:
     return await service.create(data)
+
+
+@router.get("")
+async def list_items(service: FromDishka[ItemService]) -> list[ItemResponse]:
+    return await service.list_items()
+```
+
+`routers/__init__.py` combines the feature's routers into one `router`, which `main.py` imports:
+
+```python
+"""The feature's HTTP routers (Nest controllers), combined into one `router` for main.py."""
+
+from fastapi import APIRouter
+
+from src.app.features.items.routers.items import router as items_router
+
+router = APIRouter()
+router.include_router(items_router)
 ```
 
 `main.py` — the lifespan closes the container (and every resource it opened) on shutdown:
@@ -499,7 +534,7 @@ Installed by default: `fastapi`, `granian`, `pydantic-settings` (config), `dishk
 | Cache, locks, rate limits | **redis** (`redis.asyncio`)      | `uv add redis`                                               |
 | Outgoing HTTP calls       | **httpx2**                       | `uv add httpx2` (already a dev dependency for tests)         |
 
-**Database pattern** (verified end to end on Python 3.15 with SQLAlchemy 2.1, dishka and FastAPI's TestClient: Ruff, BasedPyright `recommended` and tach all pass; a successful request commits, a request that raises after an insert rolls back). This is the NestJS-style repository layer: one shared base in `common/`, thin feature repositories on top — the same shape Polar uses in production (`server/polar/kit/repository/base.py`).
+**Database pattern** (verified end to end on Python 3.15 with SQLAlchemy 2.1, dishka, redis-py 8, SQLite and fakeredis: Ruff, BasedPyright `recommended`, tach, flake8 and the structure test all pass; a successful request commits, a request that raises after an insert rolls back). This is the NestJS-style repository layer your team used: one shared base in `common/`, thin feature repositories on top — the same shape Polar uses in production (`server/polar/kit/repository/base.py`).
 
 **Who does what:** SQLAlchemy talks to the database (models, queries, sessions). dishka creates and hands out the objects: one engine per app, a fresh session per request, the repository built with that session, the service with that repository — and it commits or rolls back when the request ends.
 
@@ -514,7 +549,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
-    """Base class for every ORM model (features/<name>/models.py)."""
+    """Base class for every ORM model (features/<name>/models/)."""
 
 
 class RepositoryBase[M: Base]:
@@ -530,6 +565,9 @@ class RepositoryBase[M: Base]:
 
     def base_statement(self) -> Select[M]:
         return select(self.model)
+
+    async def get_by_id(self, entity_id: int | str) -> M | None:
+        return await self.session.get(self.model, entity_id)
 
     async def get_one_or_none(self, statement: Select[M]) -> M | None:
         return (await self.session.scalars(statement)).one_or_none()
@@ -593,10 +631,10 @@ class DatabaseProvider(Provider):
                 await session.rollback()
 ```
 
-A feature on the database — `features/<name>/models.py`, a repository that inherits the base, and a request-scoped repository provider:
+A feature on the database — `models/` (Nest entities), a repository that inherits the base, and request-scoped providers:
 
 ```python
-# features/items/models.py
+# features/items/models/items.py
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.app.common.repository import Base
@@ -610,13 +648,13 @@ class Item(Base):
 ```
 
 ```python
-# features/items/repository.py
+# features/items/repositories/items.py
 from collections.abc import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.common.repository import RepositoryBase
-from src.app.features.items.models import Item
+from src.app.features.items.models.items import Item
 
 
 class ItemRepository(RepositoryBase[Item]):
@@ -629,48 +667,42 @@ class ItemRepository(RepositoryBase[Item]):
         return await self.get_all(self.base_statement().where(Item.name == name))
 ```
 
-```python
-# features/items/dependencies.py — the repository now needs the request's session
-    @provide(scope=Scope.REQUEST)
-    def repository(self, session: AsyncSession) -> ItemRepository:
-        return ItemRepository(session)
-```
-
-The service keeps returning Pydantic schemas: it maps models to `ItemResponse` (`ItemResponse(id=item.id, name=item.name)`), so no SQLAlchemy object leaves the service.
+The service keeps returning Pydantic schemas: it maps models to `ItemResponse`, so no SQLAlchemy object leaves the service.
 
 Wiring checklist:
 
 - `uv add "sqlalchemy[asyncio]" asyncpg` (and `alembic`); `database_url: SecretStr` in `Settings` (`postgresql+asyncpg://…` in `.env`, add it to `.env.example`); add `DatabaseProvider()` to `create_container()`
-- `backend/tach.toml`: add a module `src.app.core.database` (`depends_on = []`; config and logger are utilities) and add `"src.app.core.database"` to `src.app.core.container`'s `depends_on`
-- Each feature with tables: add `models.py` and extend its `tach.domain.toml` as below (repository and service may use `models`); a feature without tables keeps the original file
+- `backend/tach.toml`: add a module `src.app.core.database` (`depends_on = []`) and add `"src.app.core.database"` to `src.app.core.container`'s `depends_on`
+- Each feature with tables: add a `models/` package and extend its `tach.domain.toml` (repositories and services may use `models`):
 
 ```toml
 # Layer rules for this feature — copied with the folder when adding a feature.
-# Paths are relative to this feature; "//" paths are absolute.
-# NestJS-style: router -> service -> repository; another feature only through its
-# service (and its schemas for DTO types).
+# Paths are relative to this feature; "//" paths are absolute. Each path is a folder
+# (e.g. "services" covers services/*.py).
+# NestJS-style: routers -> services -> repositories; another feature only through its
+# services (and its schemas for DTO types).
 
 [[modules]]
-path = "router"
+path = "routers"
 depends_on = [
-  "service",
+  "services",
   "schemas",
-  "//src.app.features.*.service",
+  "//src.app.features.*.services",
   "//src.app.features.*.schemas",
 ]
 
 [[modules]]
-path = "service"
+path = "services"
 depends_on = [
   "models",
-  "repository",
+  "repositories",
   "schemas",
-  "//src.app.features.*.service",
+  "//src.app.features.*.services",
   "//src.app.features.*.schemas",
 ]
 
 [[modules]]
-path = "repository"
+path = "repositories"
 depends_on = ["models", "schemas"]
 
 [[modules]]
@@ -679,23 +711,21 @@ depends_on = []
 
 [[modules]]
 path = "dependencies"
-depends_on = ["repository", "service"]
+depends_on = ["repositories", "services"]
 
 [[modules]]
 path = "models"
 depends_on = []
 ```
 
-- Ruff — make "queries only in repositories" an error: add `"sqlalchemy".msg = "Database access goes through repositories."` to `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, and `TID251` to `per-file-ignores` for `src/app/core/database.py`, `src/app/common/repository.py`, `src/app/features/*/repository.py`, `src/app/features/*/models.py` and `src/app/features/*/dependencies.py` (verified: a `from sqlalchemy import select` in a service is then `TID251 sqlalchemy is banned`)
-- Repositories **flush, never commit**; only the session provider commits or rolls back. No unbounded queries — use `paginate`. Add optional mixins next to the base (soft delete, sorting, external ID — as Polar does) only when a feature needs them
+- Ruff — make "storage only in repositories" an error: add `"sqlalchemy".msg = "Database access goes through repositories."` and `"redis".msg = "Redis access goes through repositories."` to `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, and `TID251` to `per-file-ignores` for `src/app/core/database.py`, `src/app/core/redis.py`, `src/app/common/*repository.py`, `src/app/features/*/repositories/*.py`, `src/app/features/*/models/*.py` and `src/app/features/*/dependencies.py` (verified: a `sqlalchemy` or `redis` import in a service is then a `TID251` error)
+- Repositories **flush, never commit**; only the session provider commits or rolls back. No unbounded queries — use `paginate`
 - Alembic: `uv run alembic init -t async migrations`, set `target_metadata = Base.metadata` (from `src.app.common.repository`); never edit an existing migration; review autogenerate output; run `alembic upgrade head` in CI/CD, never at app startup
 - Tests: services and repositories now need a session — integration tests use a real test database and roll back after each test
 
 ### Redis pattern
 
-Only when the user approves Redis (verified in a scratch build on Python 3.15 with redis-py 8 and fakeredis: Ruff, BasedPyright `recommended`, tach and flake8 pass; typed JSON round-trip, key prefix, TTL in seconds, counters, container wiring and `aclose()` on shutdown all checked).
-
-Unlike the database there is **no per-request session and no commit/rollback**: one client (with its connection pool) serves the whole app, and redis-py's async client must be closed explicitly with `aclose()` (it has no destructor). Polar does the same (one client created at startup, shared by the app).
+Only when the user approves Redis (same verified build as above). Unlike the database there is **no per-request session and no commit/rollback**: one client (with its connection pool) serves the whole app, and redis-py's async client must be closed explicitly with `aclose()` (it has no destructor). Polar does the same.
 
 `src/app/core/redis.py`:
 
@@ -721,7 +751,9 @@ class RedisProvider(Provider):
         await client.aclose()  # async clients have no destructor; close on shutdown
 ```
 
-`src/app/common/redis_repository.py` — the shared base every feature's Redis repository inherits:
+Two shared bases live in `common/`:
+
+`src/app/common/redis_repository.py` — generic Redis access (key prefix per feature, TTL in **seconds**, typed Pydantic values) for counters, locks and custom caches:
 
 ```python
 from pydantic import BaseModel
@@ -758,34 +790,114 @@ class RedisRepositoryBase:
         _ = await self.redis.delete(self.key(*parts))
 ```
 
-A feature's Redis repository lives in its `repository.py` next to the database one, and gets its own provider:
+`src/app/common/cached_repository.py` — **cache-aside in front of a database repository** (the NestJS `Cached<X>Repository` pattern your team used): reads try Redis, fall back to the database repository and cache the result; writes go through the database repository and then delete the cached copy:
 
 ```python
-class ItemCache(RedisRepositoryBase):
-    """This feature's Redis access: keys live under `items:`."""
+from pydantic import BaseModel
+from redis.asyncio import Redis
 
-    def __init__(self, redis: Redis) -> None:
-        super().__init__(redis, prefix="items", default_ttl_seconds=300)
+from src.app.common.redis_repository import RedisRepositoryBase
+from src.app.common.repository import Base, RepositoryBase
 
-    async def increment_views(self, item_id: int) -> int:
-        return await self.redis.incr(self.key("views", item_id))
+
+class CachedRepositoryBase[M: Base, S: BaseModel](RedisRepositoryBase):
+    """Cache-aside in front of a database repository (the NestJS `Cached<X>Repository` pattern).
+
+    Reads try Redis first, fall back to the database repository and cache the result; writes go
+    through the database repository and then **delete** the cached copy (`invalidate_id`). Values
+    are cached as Pydantic schemas `S`, so ORM objects never go into Redis.
+    """
+
+    def __init__(
+        self,
+        redis: Redis,
+        repository: RepositoryBase[M],
+        schema: type[S],
+        prefix: str,
+        default_ttl_seconds: int | None = 300,
+    ) -> None:
+        super().__init__(redis, prefix, default_ttl_seconds)
+        self.repository: RepositoryBase[M] = repository
+        self.schema: type[S] = schema
+
+    async def get_by_id(self, entity_id: int | str) -> S | None:
+        cached = await self.get_model(self.schema, "id", entity_id)
+        if cached is not None:
+            return cached
+        entity = await self.repository.get_by_id(entity_id)
+        if entity is None:
+            return None
+        value = self.schema.model_validate(entity, from_attributes=True)
+        await self.set_model(value, "id", entity_id)
+        return value
+
+    async def invalidate_id(self, entity_id: int | str) -> None:
+        await self.delete("id", entity_id)
+```
+
+A feature's cached repository lives in its `repositories/` folder next to the database one:
+
+```python
+# features/items/repositories/items_cached.py
+from redis.asyncio import Redis
+
+from src.app.common.cached_repository import CachedRepositoryBase
+from src.app.features.items.models.items import Item
+from src.app.features.items.repositories.items import ItemRepository
+from src.app.features.items.schemas.items import ItemResponse
+
+
+class CachedItemRepository(CachedRepositoryBase[Item, ItemResponse]):
+    """Cache-aside reads for items; keys live under `items:`."""
+
+    def __init__(self, redis: Redis, repository: ItemRepository) -> None:
+        super().__init__(redis, repository, ItemResponse, prefix="items", default_ttl_seconds=300)
+```
+
+The service reads through the cache and **invalidates after every write**:
+
+```python
+# features/items/services/items.py (excerpt)
+    async def get(self, item_id: int) -> ItemResponse | None:
+        return await self._cache.get_by_id(item_id)
+
+    async def rename(self, item_id: int, name: str) -> ItemResponse | None:
+        item = await self._repository.get_by_id(item_id)
+        if item is None:
+            return None
+        item.name = name
+        await self._repository.session.flush()
+        await self._cache.invalidate_id(item_id)  # write, then delete the cached copy
+        return ItemResponse(id=item.id, name=item.name)
 ```
 
 ```python
 # features/items/dependencies.py
+class ItemsProvider(Provider):
+    """The feature's providers, like a Nest module's `providers` list."""
+
     @provide(scope=Scope.REQUEST)
-    def cache(self, redis: Redis) -> ItemCache:
-        return ItemCache(redis)
+    def repository(self, session: AsyncSession) -> ItemRepository:
+        return ItemRepository(session)
+
+    @provide(scope=Scope.REQUEST)
+    def cached_repository(self, redis: Redis, repository: ItemRepository) -> CachedItemRepository:
+        return CachedItemRepository(redis, repository)
+
+    @provide(scope=Scope.REQUEST)
+    def service(self, repository: ItemRepository, cache: CachedItemRepository) -> ItemService:
+        return ItemService(repository, cache)
 ```
+
+Verified behaviour (SQLite + fakeredis): first read misses → loads from the database → cached with a 300 s TTL; the next read is served from Redis; a row changed **without** invalidation keeps serving the stale value until the TTL expires (that's the risk — always invalidate); update + `invalidate_id` → the next read is fresh; unknown id → `None`.
 
 Wiring checklist:
 
-- `uv add redis` (latest stable); `uv add --dev fakeredis` for tests (an in-memory Redis: `FakeAsyncRedis(decode_responses=True)`)
+- `uv add redis` (latest stable); `uv add --dev fakeredis` for tests (`FakeAsyncRedis(decode_responses=True)`, provided in place of `RedisProvider`)
 - `redis_url: SecretStr` in `Settings` (`redis://user:pass@host:6379/0` in `.env`, add it to `.env.example`); add `RedisProvider()` to `create_container()`
 - `backend/tach.toml`: add a module `src.app.core.redis` (`depends_on = []`) and add `"src.app.core.redis"` to `src.app.core.container`'s `depends_on`
-- Ruff: add `"redis".msg = "Redis access goes through repositories."` to `banned-api`, and `TID251` to `per-file-ignores` for `src/app/core/redis.py` and `src/app/common/redis_repository.py` (feature `repository.py` and `dependencies.py` are already ignored by the database rule) — verified: `from redis.asyncio import Redis` in a service is then a `TID251` error
-- Keys: always through `self.key(...)` so every key carries the feature prefix; every write has a TTL unless there is a reason not to
-- Caching a database read: cache-aside — read Redis, fall back to the database repository and store the result; after a write, **delete** the key (don't update it). Write-through only when a read right after a write must come from the cache; never write-behind (data loss if Redis fails before the flush)
+- Keys always through `self.key(...)` so every key carries the feature prefix; every write has a TTL unless there is a reason not to
+- Caching pattern: cache-aside (above) by default; delete the key after a write, never update it in place. Write-through only when a read right after a write must come from the cache; never write-behind (data loss if Redis fails before the flush)
 
 ### Switching to uvicorn
 
@@ -1175,144 +1287,6 @@ Restarts are a setup-time thing only: after changing user settings or (un)instal
 
 ---
 
-## Verify CLI (frontend)
-
-```bash
-cd frontend
-pnpm run lint && pnpm run typecheck && pnpm run format:check
-pnpm run test && pnpm run build && pnpm run audit
-```
-
----
-
-## Root `.gitignore`
-
-One file at the repo root covers both packages (no `frontend/.gitignore`). Key entries: `__pycache__/`, `.venv/`, `.pytest_cache/`, `.ruff_cache/`, `node_modules/`, `.next/`, `next-env.d.ts`, `*.tsbuildinfo`, `coverage/`, `.env` / `.env.*` with `!.env.example`, and `.vscode/*` with `!.vscode/extensions.json`, `!.vscode/settings.json`, `!.vscode/tasks.json`. Without `node_modules/` ignored, oxlint lints `node_modules` and appears to hang.
-
----
-
-## Workspace settings (commit `.vscode/`)
-
-### `.vscode/extensions.json`
-
-Recommends the nine extensions above; `unwantedRecommendations`: `ms-python.vscode-pylance`, `dbaeumer.vscode-eslint`.
-
-### `.vscode/settings.json`
-
-```json
-{
-  "npm.autoDetect": "off",
-  "editor.formatOnSave": true,
-
-  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
-  "python.languageServer": "None",
-  "basedpyright.analysis.configFilePath": "${workspaceFolder}/backend",
-  "basedpyright.analysis.diagnosticMode": "workspace",
-  "ruff.interpreter": ["${workspaceFolder}/backend/.venv/bin/python"],
-  "flake8.interpreter": ["${workspaceFolder}/backend/.venv/bin/python"],
-  "flake8.importStrategy": "fromEnvironment",
-  "flake8.cwd": "${workspaceFolder}/backend",
-  "pylint.interpreter": ["${workspaceFolder}/backend/.venv/bin/python"],
-  "pylint.importStrategy": "fromEnvironment",
-  "pylint.cwd": "${workspaceFolder}/backend",
-  "tach.importStrategy": "fromEnvironment",
-  "tach.configuration": "backend/tach.toml",
-  "pylint.severity": {
-    "convention": "Error",
-    "error": "Error",
-    "fatal": "Error",
-    "refactor": "Hint",
-    "warning": "Warning",
-    "info": "Information"
-  },
-
-  "js/ts.tsdk.path": "frontend/node_modules/typescript/lib",
-  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
-  "js/ts.tsserver.experimental.enableProjectDiagnostics": true,
-  "oxc.requireConfig": true,
-  "oxc.typeAware": true,
-  "oxc.path.tsgolint": "frontend/node_modules/.bin/tsgolint",
-
-  "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.codeActionsOnSave": {
-      "source.fixAll": "always",
-      "source.organizeImports": "always"
-    }
-  },
-  "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.codeActionsOnSave": {
-      "source.fixAll.oxc": "always",
-      "source.organizeImports": "always"
-    }
-  },
-  "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
-  "[toml]": { "editor.defaultFormatter": "tamasfe.even-better-toml" }
-}
-```
-
-The committed file repeats the `[typescript]` block for `[typescriptreact]`, `[javascript]`, `[javascriptreact]`, and the `[json]` line for `[jsonc]`, `[css]`, `[markdown]`, `[yaml]`.
-
-Why each line (setting names checked in each extension's `package.json`):
-
-- `npm.autoDetect: "off"` — hides VS Code's auto-generated npm script tasks so the task list only shows this repo's tasks.
-- `python.languageServer: "None"` — turns off Pylance's language server; BasedPyright provides types instead.
-- `oxc.requireConfig: true` — oxlint runs only where a `.oxlintrc.json` exists (`frontend/`), so other files get no default-rule noise.
-- `editor.formatOnSave` + per-language `defaultFormatter` — every file type with a formatter is formatted on save: Python by Ruff, TS/JS/JSON/CSS/Markdown/YAML by Prettier, TOML by Even Better TOML. Files without a formatter (`.gitignore`, `.nvmrc`) are left alone.
-- `basedpyright.analysis.diagnosticMode: "workspace"` — type errors for **every** file, opened or not (verified: an unopened file's error appears in Problems). `configFilePath` points BasedPyright at `backend/pyproject.toml`.
-- `*.interpreter` + `importStrategy: "fromEnvironment"` — Ruff, Flake8 and Pylint run the versions in `backend/.venv` (the same ones as the CLI, with the `flake8-max-function-length` / `flake8-pyproject` plugins); the bundled copies don't have the plugins.
-- `flake8.cwd` / `pylint.cwd` — both read `backend/pyproject.toml` from their working directory. Ruff needs no `cwd`: it finds the nearest `pyproject.toml` per file (`ruff.cwd` doesn't exist).
-- `tach.*` — the Tach extension runs `python -m tach server -c <configuration>` with the repo root as working directory, using the interpreter selected in VS Code (`backend/.venv`). Don't set `tach.interpreter`: at startup the extension passes it unexpanded to the Python extension, `${workspaceFolder}/…` resolves to nothing (`Python version undefined.undefined is not supported`) and the server never starts. `configuration` is passed as-is, so it is relative to the repo root.
-- `pylint.severity.convention: "Error"` — `C0302` is a _convention_ message, which the extension shows as Information by default.
-- `js/ts.tsserver.experimental.enableProjectDiagnostics` — TypeScript errors for every file of a project once one of its files was opened (experimental; `pnpm run typecheck` is always accurate).
-- `oxc.path.tsgolint` — the Oxc language server runs from the repo root, which has no `node_modules`, so it can't find the type-aware engine on its own.
-
-### `.vscode/tasks.json` — manual only
-
-| Task                                 | Command (cwd)                                                                               | Problem matcher                                                                                   |
-| ------------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `backend: dev`                       | `uv run granian --interface asgi --reload src.app.main:app` (backend)                       | —                                                                                                 |
-| `backend: ruff`                      | `uv run ruff check --output-format concise src tests`                                       | `ruff`                                                                                            |
-| `backend: basedpyright`              | `uv run basedpyright`                                                                       | `basedpyright` (absolute paths)                                                                   |
-| `backend: function length (flake8)`  | `uv run flake8 --color never src tests`                                                     | `flake8`                                                                                          |
-| `backend: file length (pylint)`      | `uv run pylint src tests --score=n --msg-template='{path}:{line}:{column}: {msg_id} {msg}'` | `pylint`                                                                                          |
-| `backend: structure (tach)`          | `uv run tach check`                                                                         | `tach` (`[FAIL] file:line:` when piped, `❌ file:line:` in a terminal — the pattern accepts both) |
-| `backend: format`                    | `uv run ruff format --check src tests`                                                      | —                                                                                                 |
-| `backend: test`                      | `uv run pytest --tb=line`                                                                   | `pytest` (failing assertion line)                                                                 |
-| `frontend: dev`                      | `pnpm run dev` (frontend)                                                                   | —                                                                                                 |
-| `frontend: lint`                     | `pnpm run --silent lint --format unix`                                                      | `oxlint`                                                                                          |
-| `frontend: typecheck`                | `pnpm run typecheck`                                                                        | `$tsc`, `fileLocation` = `frontend/`                                                              |
-| `frontend: format` / `test`          | `pnpm run format:check` / `pnpm run test`                                                   | —                                                                                                 |
-| `backend: audit` / `frontend: audit` | `uv run pip-audit --progress-spinner off` / `pnpm run audit`                                | — (not part of `check: all`: they report vulnerable packages, not file problems)                  |
-| **`check: all`**                     | every task above except `dev`, in parallel                                                  | each task's own                                                                                   |
-
-Run **Tasks: Run Task → `check: all`** for a full-workspace scan: every file's problems land in the Problems panel (verified: entries from all eight tools appeared), one owner per tool, so a rerun of one task replaces only its own entries. Task problems stay until that task runs again.
-
-- Task entries carry the source `<tool> (task)` (e.g. `tach (task)`); live editor entries carry the plain tool name (`tach`). A task entry is a snapshot of its last run: it stays — even for a file that was fixed or deleted — until that task runs again, so rerun `check: all` after big changes. The Tach extension re-checks a file only when it is opened or saved: its server ignores edits (`Received unknown notification: textDocument/didChange` in Output → **Tach**), so after an agent or `git` changes a file on disk its old errors stay. Clear them with **Tach: Restart Server** (or close and reopen the file).
-- Every non-composite task sets `NO_COLOR=1` (and the BasedPyright task also `FORCE_COLOR=0`, which BasedPyright needs; Ruff reads any `FORCE_COLOR` as "on", so it isn't global), and flake8 gets `--color never`. VS Code runs tasks in a terminal, where these tools print colour codes otherwise, and the problem patterns would then match nothing (verified by running each task command in a pseudo-terminal against real violations).
-- `check: all` runs its tasks **in parallel** (one terminal each). Keep it that way: with `"dependsOrder": "sequence"` VS Code stops at the first task that fails, and the remaining tools never report.
-- Agents: the Claude Code `getDiagnostics` tool returns extension diagnostics only, not task problem-matcher results. Ask the user which sources appear in Problems after running `check: all`.
-- Never add `"runOn": "folderOpen"` (it opens terminals on every reload) unless the user asks.
-
----
-
-## User settings (once per machine)
-
-`~/Library/Application Support/Code/User/settings.json` (Cursor: `.../Cursor/User/settings.json`):
-
-```json
-{
-  "files.autoSave": "onFocusChange"
-}
-```
-
-- Auto-save fires the workspace's format-on-save and fix-on-save when you click away from a file. It saves only files with **unsaved edits**: a file changed on disk by an agent isn't dirty, so nothing runs until you type in it or press Cmd+S.
-- Never put rule settings (`ruff.lint.select`, `ruff.lineLength`, `ruff.configuration`) in user settings — Ruff's default `configurationPreference: "editorFirst"` lets them override `pyproject.toml`.
-- Language blocks (`[python]`, `[typescript]`, …) in user settings are fine but redundant here: the workspace file sets them.
-
----
-
 ## Verify CLI
 
 ```bash
@@ -1343,7 +1317,7 @@ One message to the user covering: **trust the folder** when VS Code asks → ins
 cd backend && python3 -c "
 body = ''.join(f'    n += {i}\n' for i in range(101))
 open('src/app/features/items/smoke.py', 'w').write(
-    '# SMOKE TEST: delete after verifying\nimport os\n\nfrom src.app.features.items.repository import ItemRepository\n\n\n'
+    '# SMOKE TEST: delete after verifying\nimport os\n\nfrom src.app.features.items.repositories.items import ItemRepository\n\n\n'
     'def wrong_type() -> int:\n    return \"not-an-int\"\n\n\n'
     'def too_long() -> int:\n    n = 0\n' + body + '    return n\n' + ''.join(f'X{i} = {i}\n' for i in range(400)))"
 printf '# SMOKE TEST: delete after verifying\n\n\ndef closed_file_error() -> int:\n    return "not-an-int"\n' > src/app/features/items/smoke_closed.py
@@ -1359,7 +1333,7 @@ Open `smoke.py` only. Expect in Problems (verified):
 | Pylint                                                | `Too many lines in module (514/500)` (error)                                  |
 | basedpyright, in **`smoke_closed.py` (never opened)** | the same type error — proves whole-workspace mode                             |
 
-Also expect, source **tach** (verified), on `smoke.py` line 4: `Module '<root>' cannot depend on 'src.app.features.items.repository'` (a file outside the feature module types). Type a character in `smoke.py` and click away: auto-save runs Ruff — the unused imports disappear.
+Also expect, source **tach** (verified), on `smoke.py` line 4: `Module '<root>' cannot depend on 'src.app.features.items.repositories'` (a file outside the feature module types). Type a character in `smoke.py` and click away: auto-save runs Ruff — the unused imports disappear.
 
 **Frontend** — create three files in `frontend/src/app/`:
 
@@ -1399,12 +1373,12 @@ Open all three. (`smoke-jsx.tsx` must not share a base name with `smoke.ts`: Typ
 ```bash
 cd backend
 # router skips the service (tach)
-printf '\nfrom src.app.features.items.repository import ItemRepository  # SMOKE TEST\n\n_SMOKE = ItemRepository\n' >> src/app/features/items/router.py
+printf '\nfrom src.app.features.items.repositories.items import ItemRepository  # SMOKE TEST\n\n_SMOKE = ItemRepository\n' >> src/app/features/items/routers/items.py
 # feature folder missing its files (pytest)
-mkdir -p src/app/features/orders && touch src/app/features/orders/__init__.py
-printf 'from fastapi import APIRouter\n\nrouter = APIRouter(prefix="/orders")\n' > src/app/features/orders/router.py
-uv run tach check   # expect [FAIL] … Module 'src.app.features.items.router' cannot depend on 'src.app.features.items.repository'
-uv run pytest -q    # expect … src/app/features/orders/ is missing: service.py, repository.py, schemas.py, dependencies.py, tach.domain.toml
+mkdir -p src/app/features/orders/routers && touch src/app/features/orders/__init__.py src/app/features/orders/routers/__init__.py
+printf 'from fastapi import APIRouter\n\nrouter = APIRouter(prefix="/orders")\n' > src/app/features/orders/routers/orders.py
+uv run tach check   # expect [FAIL] … Module 'src.app.features.items.routers' cannot depend on 'src.app.features.items.repositories'
+uv run pytest -q    # expect … src/app/features/orders/ is missing: dependencies.py, tach.domain.toml, services/, repositories/, schemas/
 ```
 
 **Pre-commit hook** — must refuse a commit while any smoke file exists:
@@ -1416,11 +1390,11 @@ git reset -q                                                          # unstage 
 
 ### Step 2 — one batched request to the user
 
-> Please, in VS Code: (1) open `backend/src/app/features/items/smoke.py`, `backend/src/app/features/items/router.py`, and the three `frontend/src/app/smoke*` files — but **not** `smoke_closed.py`; (2) in `smoke.py` and `frontend/src/app/smoke.ts` type one space and press Cmd+S; (3) **Tasks: Run Task → `check: all`**, wait for every terminal to finish; (4) send a screenshot of the Problems tab, then reply "done".
+> Please, in VS Code: (1) open `backend/src/app/features/items/smoke.py`, `backend/src/app/features/items/routers/items.py`, and the three `frontend/src/app/smoke*` files — but **not** `smoke_closed.py`; (2) in `smoke.py` and `frontend/src/app/smoke.ts` type one space and press Cmd+S; (3) **Tasks: Run Task → `check: all`**, wait for every terminal to finish; (4) send a screenshot of the Problems tab, then reply "done".
 
 ### Step 3 — verify (agent)
 
-- **Editor checks** — `getDiagnostics` on each smoke file must show every row of the backend and frontend tables above, plus on `router.py` source **tach**: `Module 'src.app.features.items.router' cannot depend on 'src.app.features.items.repository'`.
+- **Editor checks** — `getDiagnostics` on each smoke file must show every row of the backend and frontend tables above, plus on `routers/items.py` source **tach**: `Module 'src.app.features.items.routers' cannot depend on 'src.app.features.items.repositories'`.
 - **Whole-workspace mode** — `smoke_closed.py` (never opened) must show the basedpyright type error.
 - **Fix/format on save** — read the files from disk: `smoke.py` no longer has `import os`; `smoke.ts` has single quotes, semicolons and no `readFile` import.
 - **Tasks** — in the screenshot, entries with sources `ruff (task)`, `basedpyright (task)`, `flake8 (task)`, `pylint (task)`, `tach (task)`, `pytest (task)` (orders missing files), `oxlint (task)` and `tsc (task)`.
@@ -1429,7 +1403,7 @@ git reset -q                                                          # unstage 
 ### Step 4 — clean up (agent, then user)
 
 ```bash
-git checkout -- backend/src/app/features/items/router.py
+git checkout -- backend/src/app/features/items/routers/items.py
 rm -r backend/src/app/features/orders
 rm backend/src/app/features/items/smoke.py backend/src/app/features/items/smoke_closed.py
 rm frontend/src/app/smoke.ts frontend/src/app/smoke-size.ts frontend/src/app/smoke-jsx.tsx
@@ -1468,7 +1442,7 @@ There is no CI workflow in this template.
 | An old `tach` error stays on a line that is now fine                                                | The tach server ignores edits and disk changes — **Tach: Restart Server**, or close and reopen the file. Old `<tool> (task)` entries clear when that task runs again                                                                                                                                                                                                               |
 | `File '…' not found. The file is in the program because…` (source `ts`) for a file that was deleted | The TypeScript server still holds the deleted file (usually because its tab was open). Close the tab, then **TypeScript: Restart TS Server** with a `.ts`/`.tsx` file active                                                                                                                                                                                                       |
 | `tach`: `Module '…router' cannot depend on '…repository'`                                           | Go through the service — routers never touch repositories                                                                                                                                                                                                                                                                                                                          |
-| `test_feature_has_required_files` fails                                                             | The feature folder is missing one of `router.py`, `service.py`, `repository.py`, `schemas.py`, `dependencies.py`, `__init__.py`                                                                                                                                                                                                                                                    |
+| `test_feature_has_required_files` fails                                                             | The feature folder is missing one of `__init__.py`, `dependencies.py`, `tach.domain.toml`, or a layer package (`routers/`, `services/`, `repositories/`, `schemas/`, each with `__init__.py`)                                                                                                                                                                                      |
 | `MFL000` / `C0302` / `max-lines*` error                                                             | Split the function or file. Never raise `max` or add a disable comment                                                                                                                                                                                                                                                                                                             |
 | BasedPyright `reportUnannotatedClassAttribute`                                                      | Annotate the attribute (`self._x: T = x`, `model_config: ClassVar[ConfigDict] = …`)                                                                                                                                                                                                                                                                                                |
 | BasedPyright: `asynccontextmanager` is deprecated                                                   | Annotate the lifespan `-> AsyncGenerator[None]`, not `AsyncIterator[None]`                                                                                                                                                                                                                                                                                                         |
@@ -1538,9 +1512,9 @@ Before marking tooling setup done, confirm:
 
 1. Backend: `ruff check`, `ruff format --check`, `basedpyright`, `flake8`, `pylint`, `tach check`, `pytest`, `pip-audit` all pass; the server boots and `POST /items` works
 2. Frontend: `lint`, `typecheck`, `format:check`, `test`, `build`, `audit` all pass
-3. Editor smoke test (Steps 0–4 above): every row of the backend and frontend tables appears in Problems — as errors where listed — including the never-opened `smoke_closed.py`, the tach error on `router.py`, and all eight `(task)` sources in the user's screenshot; fix/format on save confirmed on disk; the pre-commit hook refused the smoke commit; all smoke files removed and `getDiagnostics` clean
+3. Editor smoke test (Steps 0–4 above): every row of the backend and frontend tables appears in Problems — as errors where listed — including the never-opened `smoke_closed.py`, the tach error on `routers/items.py`, and all eight `(task)` sources in the user's screenshot; fix/format on save confirmed on disk; the pre-commit hook refused the smoke commit; all smoke files removed and `getDiagnostics` clean
 4. Size limits are errors in both: `max-function-length = 100` + `max-module-lines = 500` (backend), `max-lines-per-function` 100 + `max-lines` 500 (frontend)
-5. `backend/tach.toml` has `root_module = "forbid"` and the router → service → repository rules; `tests/test_structure.py` exists
+5. `backend/tach.toml` has `root_module = "forbid"` and the routers → services → repositories rules; `tests/test_structure.py` exists
 6. No stray config files: no `pyrightconfig.json`, `.flake8`, `.pylintrc`, `[tool.tach]` in `pyproject.toml`, `eslint.config.mjs`, `frontend/.gitignore`
 7. Extensions installed as listed; Pylance and ESLint not installed; the interpreter is `backend/.venv`
 8. Versions are the newest stable ones that pass every check; any held-back major is recorded in Troubleshooting

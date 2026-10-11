@@ -1,4 +1,4 @@
-from src.app.features.items.schemas import ItemCreate, ItemResponse
+from src.app.features.items.schemas.items import ItemCreate, ItemResponse
 
 
 class ItemRepository:

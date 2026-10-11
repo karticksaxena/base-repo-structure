@@ -1,8 +1,8 @@
 import pytest
 
-from src.app.features.items.repository import ItemRepository
-from src.app.features.items.schemas import ItemCreate
-from src.app.features.items.service import ItemService
+from src.app.features.items.repositories.items import ItemRepository
+from src.app.features.items.schemas.items import ItemCreate
+from src.app.features.items.services.items import ItemService
 
 
 @pytest.mark.unit

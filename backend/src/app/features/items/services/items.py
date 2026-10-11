@@ -1,6 +1,6 @@
 from src.app.core.logger import logger
-from src.app.features.items.repository import ItemRepository
-from src.app.features.items.schemas import ItemCreate, ItemResponse
+from src.app.features.items.repositories.items import ItemRepository
+from src.app.features.items.schemas.items import ItemCreate, ItemResponse
 
 
 class ItemService:
