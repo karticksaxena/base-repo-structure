@@ -49,10 +49,28 @@ Every layer folder is a package (`__init__.py`) holding one module per use-case 
 | No `sqlalchemy` / `redis` imports outside repositories, models, `dependencies.py` and `core/` (once added)                                                                                         | Ruff `TID251`                                       | live, task, pre-commit hook                                                           |
 | No way around the checks: no `# tach-ignore`, `# noqa: TID…`, `reportImportCycles` ignores, `__import__` / `importlib.import_module`, blanket `# noqa` / `# type: ignore`                          | `tests/test_structure.py`, Ruff `TID251` + `PGH`    | live (Ruff), task, pre-commit hook                                                    |
 
-- Used by one feature → that feature's `constants/` or `utils/`; needed by a second feature → move it to `common/` — never a feature importing another feature's internals
-- Add a feature by copying `features/items/` (its `tach.domain.toml` comes along — never edit it in one feature), renaming the modules inside the layer folders and the classes, pointing `routers/__init__.py` at the new router module, registering its `router` in `main.py` and its provider in `core/container.py`, and adding `tests/features/<name>/test_*.py`
-- When a check fails, change the code to fit the structure — never loosen `tach.toml`, a `tach.domain.toml`, the structure test or a lint rule to make it pass. A genuinely new kind of folder (e.g. `tasks/`, `listeners/`, `grpc/`) goes into `items`' `tach.domain.toml` (copied to every feature) and `REQUIRED_PACKAGES` in the structure test — ask first
-- After editing files, trust `uv run tach check` over the editor: the Tach extension doesn't see disk changes until the file is reopened or **Tach: Restart Server** runs
+### Where code goes
+
+- HTTP (paths, status codes, request parsing) → `routers/`; business rules → `services/`; database, Redis or other data sources → `repositories/`
+- Request/response shapes → `schemas/`; fixed values and enums → `constants/`; small pure helpers → `utils/`
+- Used by one feature → stays in that feature; needed by a second feature → move it to `common/`; app-wide setup → `core/` — never import another feature's internals
+
+### Adding a feature (`orders`)
+
+1. `cp -R src/app/features/items src/app/features/orders` — every folder, `__init__.py` and `tach.domain.toml` comes along; never edit the copied `tach.domain.toml`
+2. Rename the modules in each layer folder (`routers/items.py` → `routers/orders.py`, …), the classes (`ItemService` → `OrderService`, …) and **every import** (tach rejects any import still pointing at `items`); keep every folder, even an empty `constants/` or `utils/`
+3. Point `routers/__init__.py` at the new router module; register the router in `main.py` and the provider in `core/container.py`
+4. Add `tests/features/orders/test_*.py`
+5. Run every check (`../SETUP.md` → Verify CLI) — done only when all pass
+
+### Changing the layer rules (ask first)
+
+Edit `features/items/tach.domain.toml`, then copy it to every feature: `find src/app/features -mindepth 1 -maxdepth 1 -type d ! -name items ! -name __pycache__ -exec cp src/app/features/items/tach.domain.toml {}/ \;`. A new kind of folder (e.g. `tasks/`, `listeners/`, `grpc/`) also goes into `REQUIRED_PACKAGES` in `tests/test_structure.py` and into every feature.
+
+### When a check fails
+
+- Change the code to fit the structure — never loosen `tach.toml`, a `tach.domain.toml`, the structure test or a lint rule, never add `# tach-ignore` / `# noqa: TID…`, and **never run `tach sync`** (tach suggests it; it rewrites the rules to allow whatever the code imports)
+- Trust `uv run tach check` over the editor after editing files: the Tach extension doesn't see disk changes until the file is reopened or **Tach: Restart Server** runs
 - Not caught by any tool, so keep it by hand: routers hold no business logic
 
 ## Rules
