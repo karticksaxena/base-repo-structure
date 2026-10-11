@@ -497,13 +497,81 @@ Installed by default: `fastapi`, `granian`, `pydantic-settings` (config), `dishk
 | Cache, locks, rate limits | **redis** (`redis.asyncio`)      | `uv add redis`                                               |
 | Outgoing HTTP calls       | **httpx2**                       | `uv add httpx2` (already a dev dependency for tests)         |
 
-**SQLAlchemy wiring** (verified with dishka on Python 3.15) — `core/database.py` holds a `DatabaseProvider`: engine per app, session per request:
+**Database pattern** (verified end to end on Python 3.15 with SQLAlchemy 2.1, dishka and FastAPI's TestClient: Ruff, BasedPyright `recommended` and tach all pass; a successful request commits, a request that raises after an insert rolls back). This is the NestJS-style repository layer: one shared base in `common/`, thin feature repositories on top — the same shape Polar uses in production (`server/polar/kit/repository/base.py`).
+
+**Who does what:** SQLAlchemy talks to the database (models, queries, sessions). dishka creates and hands out the objects: one engine per app, a fresh session per request, the repository built with that session, the service with that repository — and it commits or rolls back when the request ends.
+
+`src/app/common/repository.py` — the ORM `Base` and the generic repository every feature inherits:
 
 ```python
+from collections.abc import Sequence
+
+from sqlalchemy import Select, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import DeclarativeBase
+
+
+class Base(DeclarativeBase):
+    """Base class for every ORM model (features/<name>/models.py)."""
+
+
+class RepositoryBase[M: Base]:
+    """Generic data access shared by every feature repository.
+
+    Feature repositories inherit it and add only their own queries. Repositories flush but never
+    commit: the request-scoped session provider commits or rolls back once per request.
+    """
+
+    def __init__(self, session: AsyncSession, model: type[M]) -> None:
+        self.session: AsyncSession = session
+        self.model: type[M] = model
+
+    def base_statement(self) -> Select[M]:
+        return select(self.model)
+
+    async def get_one_or_none(self, statement: Select[M]) -> M | None:
+        return (await self.session.scalars(statement)).one_or_none()
+
+    async def get_all(self, statement: Select[M]) -> Sequence[M]:
+        return (await self.session.scalars(statement)).all()
+
+    async def paginate(self, statement: Select[M], *, limit: int, offset: int = 0) -> Sequence[M]:
+        return await self.get_all(statement.limit(limit).offset(offset))
+
+    async def count(self, statement: Select[M]) -> int:
+        total = await self.session.scalar(select(func.count()).select_from(statement.subquery()))
+        return total or 0
+
+    async def create(self, obj: M) -> M:
+        self.session.add(obj)
+        await self.session.flush()
+        return obj
+```
+
+`src/app/core/database.py` — engine per app, session per request; dishka sends the request's exception into the generator, so the session commits only when the request succeeded:
+
+```python
+from collections.abc import AsyncGenerator, AsyncIterator
+
+from dishka import (
+    Provider,
+    Scope,
+    provide,  # pyright: ignore[reportUnknownVariableType] -- dishka types it with Any
+)
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
+from src.app.core.config import get_settings
+
+
 class DatabaseProvider(Provider):
     @provide(scope=Scope.APP)
-    async def engine(self, settings: Settings) -> AsyncIterator[AsyncEngine]:
-        engine = create_async_engine(settings.database_url.get_secret_value())
+    async def engine(self) -> AsyncIterator[AsyncEngine]:
+        engine = create_async_engine(get_settings().database_url.get_secret_value())
         yield engine
         await engine.dispose()
 
@@ -514,19 +582,112 @@ class DatabaseProvider(Provider):
     @provide(scope=Scope.REQUEST)
     async def session(
         self, factory: async_sessionmaker[AsyncSession]
-    ) -> AsyncIterator[AsyncSession]:
+    ) -> AsyncGenerator[AsyncSession, BaseException | None]:
         async with factory() as session:
-            yield session
+            exc = yield session  # dishka sends the request's exception, if any
+            if exc is None:
+                await session.commit()
+            else:
+                await session.rollback()
 ```
 
-Then:
+A feature on the database — `features/<name>/models.py`, a repository that inherits the base, and a request-scoped repository provider:
 
-- `database_url: SecretStr` in `Settings` (`postgresql+asyncpg://…` in `.env`); add `DatabaseProvider()` to `create_container()`
-- ORM models in `features/<name>/models.py`; repositories take an `AsyncSession` in `__init__`
-- tach: add modules `src.app.core.database` (`depends_on = ["src.app.core.config"]`) and `src.app.features.*.models` (`depends_on = []`), add `"src.app.core.database"` to `core.container`'s `depends_on`, and `"src.app.features.*.models"` to the repository's
-- Alembic: never edit an existing migration; review autogenerate output; run `alembic upgrade head` in CI/CD, never at app startup
-- Ruff: add `"sqlalchemy".msg = "Database access goes through repositories."` to `banned-api`, and `TID251` to `per-file-ignores` for `src/app/features/*/repository.py`, `src/app/features/*/models.py` and `src/app/core/database.py` — a query in a service is then an error
-- Integration tests use a real test database and roll back after each test
+```python
+# features/items/models.py
+from sqlalchemy.orm import Mapped, mapped_column
+
+from src.app.common.repository import Base
+
+
+class Item(Base):
+    __tablename__: str = "items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column()
+```
+
+```python
+# features/items/repository.py
+from collections.abc import Sequence
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.app.common.repository import RepositoryBase
+from src.app.features.items.models import Item
+
+
+class ItemRepository(RepositoryBase[Item]):
+    """Only this feature's own queries live here; generic ones come from RepositoryBase."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        super().__init__(session, Item)
+
+    async def list_by_name(self, name: str) -> Sequence[Item]:
+        return await self.get_all(self.base_statement().where(Item.name == name))
+```
+
+```python
+# features/items/dependencies.py — the repository now needs the request's session
+    @provide(scope=Scope.REQUEST)
+    def repository(self, session: AsyncSession) -> ItemRepository:
+        return ItemRepository(session)
+```
+
+The service keeps returning Pydantic schemas: it maps models to `ItemResponse` (`ItemResponse(id=item.id, name=item.name)`), so no SQLAlchemy object leaves the service.
+
+Wiring checklist:
+
+- `uv add "sqlalchemy[asyncio]" asyncpg` (and `alembic`); `database_url: SecretStr` in `Settings` (`postgresql+asyncpg://…` in `.env`, add it to `.env.example`); add `DatabaseProvider()` to `create_container()`
+- `backend/tach.toml`: add a module `src.app.core.database` (`depends_on = []`; config and logger are utilities) and add `"src.app.core.database"` to `src.app.core.container`'s `depends_on`
+- Each feature with tables: add `models.py` and extend its `tach.domain.toml` as below (repository and service may use `models`); a feature without tables keeps the original file
+
+```toml
+# Layer rules for this feature — copied with the folder when adding a feature.
+# Paths are relative to this feature; "//" paths are absolute.
+# NestJS-style: router -> service -> repository; another feature only through its
+# service (and its schemas for DTO types).
+
+[[modules]]
+path = "router"
+depends_on = [
+  "service",
+  "schemas",
+  "//src.app.features.*.service",
+  "//src.app.features.*.schemas",
+]
+
+[[modules]]
+path = "service"
+depends_on = [
+  "models",
+  "repository",
+  "schemas",
+  "//src.app.features.*.service",
+  "//src.app.features.*.schemas",
+]
+
+[[modules]]
+path = "repository"
+depends_on = ["models", "schemas"]
+
+[[modules]]
+path = "schemas"
+depends_on = []
+
+[[modules]]
+path = "dependencies"
+depends_on = ["repository", "service"]
+
+[[modules]]
+path = "models"
+depends_on = []
+```
+
+- Ruff — make "queries only in repositories" an error: add `"sqlalchemy".msg = "Database access goes through repositories."` to `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, and `TID251` to `per-file-ignores` for `src/app/core/database.py`, `src/app/common/repository.py`, `src/app/features/*/repository.py`, `src/app/features/*/models.py` and `src/app/features/*/dependencies.py` (verified: a `from sqlalchemy import select` in a service is then `TID251 sqlalchemy is banned`)
+- Repositories **flush, never commit**; only the session provider commits or rolls back. No unbounded queries — use `paginate`. Add optional mixins next to the base (soft delete, sorting, external ID — as Polar does) only when a feature needs them
+- Alembic: `uv run alembic init -t async migrations`, set `target_metadata = Base.metadata` (from `src.app.common.repository`); never edit an existing migration; review autogenerate output; run `alembic upgrade head` in CI/CD, never at app startup
+- Tests: services and repositories now need a session — integration tests use a real test database and roll back after each test
 
 ### Switching to uvicorn
 
