@@ -1,14 +1,14 @@
-from typing import ClassVar
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from src.app.common.schemas import BaseSchema
 
 
-class ItemCreate(BaseModel):
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", str_strip_whitespace=True)
-
+class ItemCreate(BaseSchema):
     name: str = Field(min_length=1, max_length=100, description="Display name of the item.")
 
 
-class ItemResponse(BaseModel):
-    id: int = Field(description="Item ID.")
+class ItemResponse(BaseSchema):
+    id: UUID = Field(description="Item ID (UUIDv7).")
     name: str = Field(description="Display name of the item.")

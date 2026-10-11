@@ -57,29 +57,36 @@ VS Code has **no global "lint the whole workspace" setting** — each extension 
 
 This template stays bare on purpose. The items below are what production FastAPI / Next.js apps commonly add (seen in Polar, Onyx, Sentry, the FastAPI full-stack template, cal.com, Dub, Supabase, create-t3-app), but whether and how depends on the application. **When setting up a new project, ask the user about each relevant item before adding it.**
 
-| Side     | Item                                             | What it is                                                                                                                                                                                                                                                                                                                                                                 | Typical trigger                                                          |
-| -------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| backend  | **ASGI server — always ask at setup**            | **Granian** (default; latest stable; Rust server) or `uvicorn[standard]` (second option; what FastAPI's own install uses, far larger community). On this app, 1 worker: Granian 13,416 req/s vs `uvicorn[standard]` 10,658 (+26% for Granian), plain `uvicorn` 4,660. Granian's free-threading support is experimental — see [Switching to uvicorn](#switching-to-uvicorn) | project setup                                                            |
-| backend  | `/health` (+ `/health/ready`)                    | liveness/readiness endpoint for load balancers and orchestrators                                                                                                                                                                                                                                                                                                           | the app gets deployed                                                    |
-| backend  | Request-ID middleware                            | an `X-Request-ID` per request, bound into every log line (`logger.contextualize`)                                                                                                                                                                                                                                                                                          | more than one service, or log search in production                       |
-| backend  | Error contract                                   | one `AppError` base class + one handler in `main.py` → one JSON error shape                                                                                                                                                                                                                                                                                                | the first domain error                                                   |
-| backend  | Production settings                              | `env` setting (dev/test/prod), OpenAPI docs off in prod, `SecretStr` secrets, `env_prefix`                                                                                                                                                                                                                                                                                 | the first deployment                                                     |
-| backend  | CORS                                             | `CORSMiddleware` with a `cors_origins` setting (never `*`)                                                                                                                                                                                                                                                                                                                 | the browser calls the backend directly                                   |
-| backend  | Security headers, body-size limit, rate limiting | HSTS / body limits (often done by the proxy); Redis-backed rate limits                                                                                                                                                                                                                                                                                                     | public endpoints, auth                                                   |
-| backend  | Database                                         | SQLAlchemy async + asyncpg + Alembic, test DB with rollback per test (see [Libraries by use case](#7-libraries-by-use-case))                                                                                                                                                                                                                                               | the first persisted data                                                 |
-| backend  | Redis                                            | app-wide client + `RedisRepositoryBase` (key prefix, TTL in seconds, typed values) — see [Redis pattern](#redis-pattern)                                                                                                                                                                                                                                                   | caching, counters, locks, rate limits                                    |
-| backend  | Background jobs / queues                         | **Taskiq** (async-first like BullMQ; Redis broker `taskiq-redis`, FastAPI + dishka integrations; still pre-1.0, marked Alpha) or **Celery** (mature, production standard, sync-first). Not set up in this template — research the current setup steps when chosen                                                                                                          | work that must run outside the request (emails, imports, scheduled jobs) |
-| backend  | Observability                                    | Sentry (only when a DSN is set), OpenTelemetry / Logfire, or structlog instead of loguru                                                                                                                                                                                                                                                                                   | production monitoring                                                    |
-| backend  | Docker                                           | multi-stage image with uv (`uv sync --locked --no-dev`), non-root `USER`, `fastapi run`                                                                                                                                                                                                                                                                                    | container deployment                                                     |
-| backend  | Test extras                                      | `pytest-cov` with a threshold, `pytest-xdist`                                                                                                                                                                                                                                                                                                                              | the suite grows or slows                                                 |
-| backend  | Supply-chain cooldown                            | `[tool.uv] exclude-newer = "1 week"` — skip brand-new releases                                                                                                                                                                                                                                                                                                             | team policy                                                              |
-| frontend | Security headers / CSP                           | `headers()` in `next.config.ts`: `X-Content-Type-Options`, `Referrer-Policy`, frame protection, `poweredByHeader: false`; CSP later                                                                                                                                                                                                                                        | the app gets deployed                                                    |
-| frontend | Env validation                                   | `@t3-oss/env-nextjs` + Zod: build fails on a missing/invalid env var                                                                                                                                                                                                                                                                                                       | the first env var                                                        |
-| frontend | `typedRoutes`                                    | `next.config.ts` `typedRoutes: true`: `<Link href>` checked against real routes                                                                                                                                                                                                                                                                                            | more than a few routes                                                   |
-| frontend | Observability                                    | Sentry / `instrumentation.ts` `onRequestError`                                                                                                                                                                                                                                                                                                                             | production monitoring                                                    |
-| frontend | E2E tests                                        | Playwright                                                                                                                                                                                                                                                                                                                                                                 | real user flows exist                                                    |
-| frontend | Extras                                           | `server-only` package (data layer), bundle analyzer, knip (unused code), React Compiler                                                                                                                                                                                                                                                                                    | when the need shows up                                                   |
-| both     | `.editorconfig`                                  | shared indent / line-ending defaults for editors without per-language formatters                                                                                                                                                                                                                                                                                           | contributors use other editors                                           |
+| Side     | Item                                             | What it is                                                                                                                                                                                                                                                                                                                                                                 | Typical trigger                                                                |
+| -------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| backend  | **ASGI server — always ask at setup**            | **Granian** (default; latest stable; Rust server) or `uvicorn[standard]` (second option; what FastAPI's own install uses, far larger community). On this app, 1 worker: Granian 13,416 req/s vs `uvicorn[standard]` 10,658 (+26% for Granian), plain `uvicorn` 4,660. Granian's free-threading support is experimental — see [Switching to uvicorn](#switching-to-uvicorn) | project setup                                                                  |
+| backend  | `/health` (+ `/health/ready`)                    | liveness/readiness endpoint for load balancers and orchestrators                                                                                                                                                                                                                                                                                                           | the app gets deployed                                                          |
+| backend  | Request-ID middleware                            | an `X-Request-ID` per request, bound into every log line (`logger.contextualize`)                                                                                                                                                                                                                                                                                          | more than one service, or log search in production                             |
+| backend  | Error contract                                   | one `AppError` base class + one handler in `main.py` → one JSON error shape                                                                                                                                                                                                                                                                                                | the first domain error                                                         |
+| backend  | Production settings                              | `env` setting (dev/test/prod), OpenAPI docs off in prod, `SecretStr` secrets, `env_prefix`                                                                                                                                                                                                                                                                                 | the first deployment                                                           |
+| backend  | CORS                                             | `CORSMiddleware` with a `cors_origins` setting (never `*`)                                                                                                                                                                                                                                                                                                                 | the browser calls the backend directly                                         |
+| backend  | Security headers, body-size limit, rate limiting | HSTS / body limits (often done by the proxy); Redis-backed rate limits                                                                                                                                                                                                                                                                                                     | public endpoints, auth                                                         |
+| backend  | Database                                         | SQLAlchemy async + asyncpg + Alembic, test DB with rollback per test (see [Libraries by use case](#7-libraries-by-use-case))                                                                                                                                                                                                                                               | the first persisted data                                                       |
+| backend  | Redis                                            | app-wide client + `RedisRepositoryBase` (key prefix, TTL in seconds, typed values) — see [Redis pattern](#redis-pattern)                                                                                                                                                                                                                                                   | caching, counters, locks, rate limits                                          |
+| backend  | Background jobs / queues                         | **Taskiq** (async-first like BullMQ; Redis broker `taskiq-redis`, FastAPI + dishka integrations; still pre-1.0, marked Alpha) or **Celery** (mature, production standard, sync-first). Not set up in this template — research the current setup steps when chosen                                                                                                          | work that must run outside the request (emails, imports, scheduled jobs)       |
+| backend  | Observability                                    | Sentry (only when a DSN is set), OpenTelemetry / Logfire, or structlog instead of loguru                                                                                                                                                                                                                                                                                   | production monitoring                                                          |
+| backend  | Docker                                           | multi-stage image with uv (`uv sync --locked --no-dev`), non-root `USER`, `fastapi run`                                                                                                                                                                                                                                                                                    | container deployment                                                           |
+| backend  | Test extras                                      | `pytest-cov` with a threshold, `pytest-xdist`                                                                                                                                                                                                                                                                                                                              | the suite grows or slows                                                       |
+| backend  | Supply-chain cooldown                            | `[tool.uv] exclude-newer = "1 week"` — skip brand-new releases                                                                                                                                                                                                                                                                                                             | team policy                                                                    |
+| backend  | Auth: current user + guards                      | a dishka `CurrentUser` provider (REQUEST scope, built from `Request` — see the dishka section) + permission checks per route (Nest guards + `@CurrentUser`)                                                                                                                                                                                                                | the first protected route                                                      |
+| backend  | Database error mapping                           | part of the error contract: one handler maps `IntegrityError` (duplicate, missing foreign key) to 409/422 instead of a 500                                                                                                                                                                                                                                                 | the database lands                                                             |
+| backend  | Transaction helper for jobs                      | outside a request there is no request-scoped session: one helper that opens a session and commits or rolls back (your team's `runInTransaction`)                                                                                                                                                                                                                           | jobs or scripts write to the database                                          |
+| backend  | Events                                           | in-process domain events (a feature reacts to another without calling its services) and external ones (SNS/SQS, Kafka, Redis streams) — your team used EventEmitter + SNS                                                                                                                                                                                                  | features react to each other's changes, or other services must hear about them |
+| backend  | Feature `tasks/` and `listeners/` folders        | a feature's job handlers (`tasks/`) and event handlers (`listeners/`): each a module in the feature's `tach.domain.toml` that may use only its `services` and `schemas` (tach rejects the folder until it has an entry)                                                                                                                                                    | background jobs or events are added                                            |
+| backend  | Seed scripts                                     | an idempotent `scripts/seed.py` for dev/test data                                                                                                                                                                                                                                                                                                                          | dev environments need sample data                                              |
+| both     | Frontend types from OpenAPI                      | export the backend's `openapi.json` and generate TypeScript types/client from it, so the frontend can't drift from the API — research the current generator when chosen                                                                                                                                                                                                    | the frontend calls the backend                                                 |
+| frontend | Security headers / CSP                           | `headers()` in `next.config.ts`: `X-Content-Type-Options`, `Referrer-Policy`, frame protection, `poweredByHeader: false`; CSP later                                                                                                                                                                                                                                        | the app gets deployed                                                          |
+| frontend | Env validation                                   | `@t3-oss/env-nextjs` + Zod: build fails on a missing/invalid env var                                                                                                                                                                                                                                                                                                       | the first env var                                                              |
+| frontend | `typedRoutes`                                    | `next.config.ts` `typedRoutes: true`: `<Link href>` checked against real routes                                                                                                                                                                                                                                                                                            | more than a few routes                                                         |
+| frontend | Observability                                    | Sentry / `instrumentation.ts` `onRequestError`                                                                                                                                                                                                                                                                                                                             | production monitoring                                                          |
+| frontend | E2E tests                                        | Playwright                                                                                                                                                                                                                                                                                                                                                                 | real user flows exist                                                          |
+| frontend | Extras                                           | `server-only` package (data layer), bundle analyzer, knip (unused code), React Compiler                                                                                                                                                                                                                                                                                    | when the need shows up                                                         |
+| both     | `.editorconfig`                                  | shared indent / line-ending defaults for editors without per-language formatters                                                                                                                                                                                                                                                                                           | contributors use other editors                                                 |
 
 ---
 
@@ -351,6 +358,7 @@ backend/
 │   │   ├── logger.py       ← loguru setup; the only place loguru is imported
 │   │   └── container.py    ← dishka container: every feature's Provider
 │   ├── common/             ← code shared by 2+ features (NestJS common/) — never imports a feature
+│   │   └── schemas.py      ← BaseSchema, Page[T], Limit/Offset (below)
 │   └── features/
 │       └── items/          ← sample feature (NestJS module) — copy it for a new one
 │           ├── __init__.py
@@ -375,6 +383,12 @@ backend/
 ```
 
 Once a database exists, each feature also gets `models/` (SQLAlchemy models — Nest entities); see [Database pattern](#7-libraries-by-use-case).
+
+`common/schemas.py` holds what every feature's schemas share (verified: unknown field → 422, `limit=0`/`101` or `offset=-1` → 422):
+
+- `BaseSchema` — every request/response schema inherits it: unknown fields are rejected (`extra="forbid"`, like Nest's `ValidationPipe` `whitelist` + `forbidNonWhitelisted`), strings are trimmed
+- `Page[T]` — every list endpoint returns `{"items": [...], "total": …, "limit": …, "offset": …}`, so the frontend handles every list the same way
+- `Limit` / `Offset` — the list endpoint's query parameters (`limit` 1–100, `offset` ≥ 0), declared once
 
 Rules the tools enforce (details: `backend/CLAUDE.md` → NestJS-style structure):
 
@@ -441,8 +455,10 @@ async def create_item(data: ItemCreate, service: FromDishka[ItemService]) -> Ite
 
 
 @router.get("")
-async def list_items(service: FromDishka[ItemService]) -> list[ItemResponse]:
-    return await service.list_items()
+async def list_items(
+    service: FromDishka[ItemService], limit: Limit = 20, offset: Offset = 0
+) -> Page[ItemResponse]:
+    return await service.list_items(limit=limit, offset=offset)
 ```
 
 `routers/__init__.py` combines the feature's routers into one `router`, which `main.py` imports:
@@ -476,15 +492,7 @@ def create_app() -> FastAPI:
     return app
 ```
 
-**dishka and FastAPI `Depends` together** (verified in one route): use `Depends` only for _request decomposition_ — query/path/header parameters such as pagination, which then appear in the OpenAPI docs — and dishka (`FromDishka[...]`) for everything you'd construct: services, repositories, DB sessions, clients. dishka parameters stay out of the OpenAPI schema.
-
-```python
-@router.get("")
-async def list_items(
-    page: Annotated[Pagination, Depends(pagination)],  # FastAPI: parsed from ?limit=&offset=
-    service: FromDishka[ItemService],  # dishka: built per request
-) -> list[ItemResponse]: ...
-```
+**dishka and FastAPI together** — `list_items` above uses both: FastAPI parses the request (body, query/path/header parameters such as `limit`/`offset`, which appear in the OpenAPI docs); dishka (`FromDishka[...]`) builds everything you'd construct — services, repositories, DB sessions, clients — and stays out of the OpenAPI schema. FastAPI `Depends` only to group request parameters (_request decomposition_), never to build services or repositories.
 
 Request-scoped values built from the request (current user, tenant) — `FastapiProvider()` makes `Request` injectable, so the service arrives already bound to the caller (verified):
 
@@ -538,29 +546,43 @@ Installed by default: `fastapi`, `granian`, `pydantic-settings` (config), `dishk
 | Cache, locks, rate limits | **redis** (`redis.asyncio`)      | `uv add redis`                                               |
 | Outgoing HTTP calls       | **httpx2**                       | `uv add httpx2` (already a dev dependency for tests)         |
 
-**Database pattern** (verified end to end on Python 3.15 with SQLAlchemy 2.1, dishka, redis-py 8, SQLite and fakeredis: Ruff, BasedPyright `recommended`, tach, flake8 and the structure test all pass; a successful request commits, a request that raises after an insert rolls back). This is the NestJS-style repository layer your team used: one shared base in `common/`, thin feature repositories on top — the same shape Polar uses in production (`server/polar/kit/repository/base.py`).
+**Database pattern** (verified end to end on Python 3.15 with SQLAlchemy 2.1, dishka, redis-py 8, SQLite and fakeredis: Ruff, BasedPyright `recommended`, tach, flake8 and the structure test all pass; a successful request commits, a request that raises after an insert rolls back; every row gets a time-ordered UUIDv7 `id` and UTC `created_at`/`updated_at`, `updated_at` moves on update, and a soft-deleted row is hidden from `get_by_id`, `paginate` and `count`). This is the NestJS-style repository layer your team used: one shared base in `common/`, thin feature repositories on top — the same shape Polar uses in production (`server/polar/kit/repository/base.py`).
 
 **Who does what:** SQLAlchemy talks to the database (models, queries, sessions). dishka creates and hands out the objects: one engine per app, a fresh session per request, the repository built with that session, the service with that repository — and it commits or rolls back when the request ends.
 
-`src/app/common/repository.py` — the ORM `Base` and the generic repository every feature inherits:
+`src/app/common/repository.py` — the ORM `Base` (audit columns on every table, the same set Polar's `RecordModel` and your team's entities have) and the generic repository every feature inherits:
 
 ```python
 from collections.abc import Sequence
+from datetime import UTC, datetime
+from uuid import UUID, uuid7
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import DateTime, Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class Base(DeclarativeBase):
-    """Base class for every ORM model (features/<name>/models/)."""
+    """Base class for every ORM model (features/<name>/models/); every table gets these columns."""
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)  # UUIDv7: time-ordered
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class RepositoryBase[M: Base]:
     """Generic data access shared by every feature repository.
 
     Feature repositories inherit it and add only their own queries. Repositories flush but never
-    commit: the request-scoped session provider commits or rolls back once per request.
+    commit: the request-scoped session provider commits or rolls back once per request. Every
+    query starts from `base_statement()`, which hides soft-deleted rows.
     """
 
     def __init__(self, session: AsyncSession, model: type[M]) -> None:
@@ -568,10 +590,10 @@ class RepositoryBase[M: Base]:
         self.model: type[M] = model
 
     def base_statement(self) -> Select[M]:
-        return select(self.model)
+        return select(self.model).where(self.model.deleted_at.is_(None))
 
-    async def get_by_id(self, entity_id: int | str) -> M | None:
-        return await self.session.get(self.model, entity_id)
+    async def get_by_id(self, entity_id: UUID) -> M | None:
+        return await self.get_one_or_none(self.base_statement().where(self.model.id == entity_id))
 
     async def get_one_or_none(self, statement: Select[M]) -> M | None:
         return (await self.session.scalars(statement)).one_or_none()
@@ -590,7 +612,17 @@ class RepositoryBase[M: Base]:
         self.session.add(obj)
         await self.session.flush()
         return obj
+
+    async def soft_delete(self, obj: M) -> None:
+        obj.deleted_at = utc_now()
+        await self.session.flush()
 ```
+
+Audit columns — why each one:
+
+- `id` — **UUIDv7** primary key (`uuid.uuid7`, stdlib since Python 3.14): one ID used everywhere — joins, URLs, responses. Time-ordered, so new rows land at the end of the index like an integer key (random UUIDv4 keys scatter inserts); not guessable like `1, 2, 3`; made in Python, so an object has its `id` before the insert. PostgreSQL 18 also has a native `uuidv7()`. Response schemas declare `id: UUID`
+- `created_at` / `updated_at` — set in Python (`utc_now`, as Polar does), not by the database: a server-side `onupdate` value would need a reload, and a lazy load fails under async SQLAlchemy
+- `deleted_at` — soft delete: `soft_delete()` keeps the row, `base_statement()` hides it from every read. Hard deletes and purging old rows are a separate decision — ask
 
 `src/app/core/database.py` — engine per app, session per request; dishka sends the request's exception into the generator, so the session commits only when the request succeeded:
 
@@ -647,8 +679,7 @@ from src.app.common.repository import Base
 class Item(Base):
     __tablename__: str = "items"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column()
+    name: Mapped[str] = mapped_column()  # id and timestamps come from Base
 ```
 
 ```python
@@ -723,7 +754,7 @@ depends_on = []
 ```
 
 - Ruff — make "storage only in repositories" an error: add `"sqlalchemy".msg = "Database access goes through repositories."` and `"redis".msg = "Redis access goes through repositories."` to `[tool.ruff.lint.flake8-tidy-imports.banned-api]`, and `TID251` to `per-file-ignores` for `src/app/core/database.py`, `src/app/core/redis.py`, `src/app/common/*repository.py`, `src/app/features/*/repositories/*.py`, `src/app/features/*/models/*.py` and `src/app/features/*/dependencies.py` (verified: a `sqlalchemy` or `redis` import in a service is then a `TID251` error)
-- Repositories **flush, never commit**; only the session provider commits or rolls back. No unbounded queries — use `paginate`
+- Repositories **flush, never commit**; only the session provider commits or rolls back. No unbounded queries — list endpoints call `paginate` and `count` on the same `base_statement()` and return `Page[T]`
 - Alembic: `uv run alembic init -t async migrations`, set `target_metadata = Base.metadata` (from `src.app.common.repository`); never edit an existing migration; review autogenerate output; run `alembic upgrade head` in CI/CD, never at app startup
 - Tests: services and repositories now need a session — integration tests use a real test database and roll back after each test
 
@@ -760,6 +791,8 @@ Two shared bases live in `common/`:
 `src/app/common/redis_repository.py` — generic Redis access (key prefix per feature, TTL in **seconds**, typed Pydantic values) for counters, locks and custom caches:
 
 ```python
+from uuid import UUID
+
 from pydantic import BaseModel
 from redis.asyncio import Redis
 
@@ -777,26 +810,28 @@ class RedisRepositoryBase:
         self.prefix: str = prefix
         self.default_ttl_seconds: int | None = default_ttl_seconds
 
-    def key(self, *parts: str | int) -> str:
+    def key(self, *parts: str | int | UUID) -> str:
         return ":".join([self.prefix, *map(str, parts)])
 
-    async def get_model[T: BaseModel](self, model: type[T], *parts: str | int) -> T | None:
+    async def get_model[T: BaseModel](self, model: type[T], *parts: str | int | UUID) -> T | None:
         raw: bytes | str | None = await self.redis.get(self.key(*parts))
         return None if raw is None else model.model_validate_json(raw)
 
     async def set_model(
-        self, value: BaseModel, *parts: str | int, ttl_seconds: int | None = None
+        self, value: BaseModel, *parts: str | int | UUID, ttl_seconds: int | None = None
     ) -> None:
         ttl = self.default_ttl_seconds if ttl_seconds is None else ttl_seconds
         _ = await self.redis.set(self.key(*parts), value.model_dump_json(), ex=ttl)
 
-    async def delete(self, *parts: str | int) -> None:
+    async def delete(self, *parts: str | int | UUID) -> None:
         _ = await self.redis.delete(self.key(*parts))
 ```
 
 `src/app/common/cached_repository.py` — **cache-aside in front of a database repository** (the NestJS `Cached<X>Repository` pattern your team used): reads try Redis, fall back to the database repository and cache the result; writes go through the database repository and then delete the cached copy:
 
 ```python
+from uuid import UUID
+
 from pydantic import BaseModel
 from redis.asyncio import Redis
 
@@ -824,7 +859,7 @@ class CachedRepositoryBase[M: Base, S: BaseModel](RedisRepositoryBase):
         self.repository: RepositoryBase[M] = repository
         self.schema: type[S] = schema
 
-    async def get_by_id(self, entity_id: int | str) -> S | None:
+    async def get_by_id(self, entity_id: UUID) -> S | None:
         cached = await self.get_model(self.schema, "id", entity_id)
         if cached is not None:
             return cached
@@ -835,7 +870,7 @@ class CachedRepositoryBase[M: Base, S: BaseModel](RedisRepositoryBase):
         await self.set_model(value, "id", entity_id)
         return value
 
-    async def invalidate_id(self, entity_id: int | str) -> None:
+    async def invalidate_id(self, entity_id: UUID) -> None:
         await self.delete("id", entity_id)
 ```
 
@@ -862,10 +897,10 @@ The service reads through the cache and **invalidates after every write**:
 
 ```python
 # features/items/services/items.py (excerpt)
-    async def get(self, item_id: int) -> ItemResponse | None:
+    async def get(self, item_id: UUID) -> ItemResponse | None:
         return await self._cache.get_by_id(item_id)
 
-    async def rename(self, item_id: int, name: str) -> ItemResponse | None:
+    async def rename(self, item_id: UUID, name: str) -> ItemResponse | None:
         item = await self._repository.get_by_id(item_id)
         if item is None:
             return None
@@ -933,7 +968,7 @@ uv run pytest
 uv run pip-audit
 ```
 
-All must pass. Then boot once: `uv run granian --interface asgi src.app.main:app` → `curl -X POST localhost:8000/items -H 'content-type: application/json' -d '{"name":"Pen"}'` returns `{"id":1,"name":"Pen"}`.
+All must pass. Then boot once: `uv run granian --interface asgi src.app.main:app` → `curl -X POST localhost:8000/items -H 'content-type: application/json' -d '{"name":"Pen"}'` returns `{"id":"<UUIDv7>","name":"Pen"}`; `curl localhost:8000/items` returns `{"items":[…],"total":1,"limit":20,"offset":0}`.
 
 ---
 

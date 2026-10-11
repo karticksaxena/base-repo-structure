@@ -1,6 +1,7 @@
 from dishka.integrations.fastapi import DishkaRoute, FromDishka
 from fastapi import APIRouter, status
 
+from src.app.common.schemas import Limit, Offset, Page
 from src.app.features.items.schemas.items import ItemCreate, ItemResponse
 from src.app.features.items.services.items import ItemService
 
@@ -13,5 +14,7 @@ async def create_item(data: ItemCreate, service: FromDishka[ItemService]) -> Ite
 
 
 @router.get("")
-async def list_items(service: FromDishka[ItemService]) -> list[ItemResponse]:
-    return await service.list_items()
+async def list_items(
+    service: FromDishka[ItemService], limit: Limit = 20, offset: Offset = 0
+) -> Page[ItemResponse]:
+    return await service.list_items(limit=limit, offset=offset)

@@ -6,9 +6,13 @@ from src.app.features.items.services.items import ItemService
 
 
 @pytest.mark.unit
-async def test_create_item_is_listed() -> None:
+async def test_list_items_returns_requested_page() -> None:
     service = ItemService(ItemRepository())
+    first = await service.create(ItemCreate(name="Pen"))
+    second = await service.create(ItemCreate(name="Book"))
 
-    item = await service.create(ItemCreate(name="Pen"))
+    page = await service.list_items(limit=1, offset=1)
 
-    assert await service.list_items() == [item]
+    assert page.items == [second]
+    assert page.total == 2
+    assert first not in page.items

@@ -53,7 +53,7 @@ In VS Code: **Tasks: Run Task → `check: all`** runs every check except the aud
 backend/src/app/
   main.py               # app factory: logger, routers, dishka
   core/                 # config, logger, container
-  common/               # shared by 2+ features (errors, utils) — never imports a feature
+  common/               # shared by 2+ features: schemas.py (BaseSchema, Page[T]) — never imports a feature
   features/<name>/      # routers/ · services/ · repositories/ · schemas/ · dependencies.py · tach.domain.toml
 frontend/src/app/       # Next.js App Router
 ```
