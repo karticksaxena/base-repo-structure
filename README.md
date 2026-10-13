@@ -86,6 +86,7 @@ The structure rules and what enforces each one are in [`backend/CLAUDE.md`](back
 ## Docs
 
 - [`SETUP.md`](SETUP.md) — tooling setup, verification and the ask-first list (read this first)
-- [`CLAUDE.md`](CLAUDE.md) — shared coding rules for AI agents
+- [`CLAUDE.md`](CLAUDE.md) — shared coding rules for AI agents, incl. the checks to run after every change
+- [`AGENTS.md`](AGENTS.md) — points agents that read `AGENTS.md` (Codex, Cursor, …) to `CLAUDE.md`
 - [`backend/CLAUDE.md`](backend/CLAUDE.md) — backend rules
 - [`frontend/CLAUDE.md`](frontend/CLAUDE.md) — frontend rules

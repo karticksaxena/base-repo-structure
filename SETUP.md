@@ -1634,6 +1634,7 @@ There is no CI workflow in this template.
 ├── SETUP.md                    ← this file
 ├── README.md
 ├── CLAUDE.md                   ← shared coding rules for AI agents
+├── AGENTS.md                   ← points other agents (Codex, Cursor, …) to CLAUDE.md
 ├── .gitignore                  ← one file for backend + frontend
 ├── .prettierrc                 ← format style for root files (docs, .vscode/*.json) — frontend's style without the organize-imports plugin
 ├── .vscode/                    ← extensions, settings (wiring + format on save), tasks
