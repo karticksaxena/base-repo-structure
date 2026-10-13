@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI
 
-from src.app.core.container import create_container
+from src.app.app_module import create_container
 from src.app.core.logger import setup_logger
 from src.app.features.items.routers import router as items_router
 

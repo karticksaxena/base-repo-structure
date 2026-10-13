@@ -16,7 +16,7 @@ exclude = ["granian"] # the ASGI server is run as a command, never imported
 [[modules]]
 path = "src.app.main"
 depends_on = [
-  "src.app.core.container",
+  "src.app.app_module",
   "src.app.core.logger",
   "src.app.features.*.routers",
 ]
@@ -37,5 +37,5 @@ depends_on = []
 utility = true          # shared by every feature (NestJS common/); never imports a feature
 
 [[modules]]
-path = "src.app.core.container"
-depends_on = ["src.app.features.*.dependencies"]
+path = "src.app.app_module"                     # root module (NestJS AppModule)
+depends_on = ["src.app.features.*.dependencies"] # the only module that imports feature providers

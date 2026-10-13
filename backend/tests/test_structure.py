@@ -19,7 +19,7 @@ TESTS_DIR = BACKEND_DIR / "tests" / "features"
 TEMPLATE_RULES = FEATURES_DIR / "items" / "tach.domain.toml"  # the feature every new one copies
 REQUIRED_FILES = ("__init__.py", "dependencies.py", "tach.domain.toml")
 REQUIRED_PACKAGES = ("routers", "services", "repositories", "schemas", "constants", "utils")
-APP_ENTRIES = ("__init__.py", "main.py", "core", "common", "features")
+APP_ENTRIES = ("__init__.py", "main.py", "app_module.py", "core", "common", "features")
 IGNORED = ("__pycache__",)
 # Code or comments that would get around a structure check: tach, Ruff's banned imports, import
 # cycles, and dynamic imports tach can't see
