@@ -239,6 +239,7 @@ max-module-lines = 500
 addopts = [
   "--strict-markers",
   "--import-mode=importlib",
+  "--continue-on-collection-errors", # an import error in one test file must not hide the structure test
   "-p",
   "no:tach",
 ] # tach's pytest plugin is not used
@@ -412,9 +413,10 @@ backend/
 │           ├── dependencies.py dishka Provider — Nest module `providers`
 │           └── tach.domain.toml this feature's layer rules (identical in every feature)
 └── tests/
-    ├── conftest.py         ← TestClient fixture (fresh app + container per test)
     ├── test_structure.py   ← fails on a missing or extra folder/file, edited layer rules, missing tests, bypasses
-    └── features/items/     ← mirrors src/app/features/
+    └── features/
+        ├── conftest.py     ← TestClient fixture (fresh app + container per test); here, not in tests/, so the structure test runs even when the app can't be imported
+        └── items/          ← mirrors src/app/features/
 ```
 
 Once a database exists, every feature also gets `models/` (SQLAlchemy models — Nest entities); see [Database pattern](#7-libraries-by-use-case).

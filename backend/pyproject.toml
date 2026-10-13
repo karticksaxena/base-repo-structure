@@ -111,6 +111,7 @@ max-module-lines = 500
 addopts = [
   "--strict-markers",
   "--import-mode=importlib",
+  "--continue-on-collection-errors", # an import error in one test file must not hide the structure test
   "-p",
   "no:tach",
 ] # tach's pytest plugin is not used
