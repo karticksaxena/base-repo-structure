@@ -434,7 +434,7 @@ Responses: routes declare a Pydantic return type and no `response_class`, so Fas
 Rules the tools enforce (details: `backend/CLAUDE.md` → NestJS-style structure):
 
 - Every feature has `__init__.py`, `routers/`, `services/`, `repositories/`, `schemas/`, `constants/`, `utils/` (each a package with `__init__.py`), `dependencies.py`, `tach.domain.toml` (identical to `items`') and `tests/features/<name>/test_*.py` — and nothing else; `src/` holds only the layout; no bypass comments — `tests/test_structure.py`
-- Imports go routers → services → repositories only; another feature is reachable only through its `services` (and `schemas` for DTO types), and only `*Service` classes leave `services/`; `constants/` and `utils/` are visible only inside the feature; files in the same layer folder may import each other; FastAPI/Starlette only in routers, `dependencies.py`, `main.py`, `core/` and `common/` — never in services, repositories, schemas, `constants/` or `utils/` (`tach check-external`) — tach
+- Imports go routers → services → repositories only; another feature is reachable only through its `services` (and `schemas` for DTO types), and only `*Service` classes leave `services/`; `constants/` and `utils/` are visible only inside the feature; files in the same layer folder may import each other; FastAPI/Starlette only in routers, `dependencies.py`, `main.py`, `app_module.py`, `core/` and `common/` — never in services, repositories, schemas, `constants/` or `utils/` (`tach check-external`) — tach
 - One module per use-case area inside a layer folder (`services/items.py`, `services/item_exports.py`); split a file before it reaches 500 lines
 
 Adding a feature `orders`:
