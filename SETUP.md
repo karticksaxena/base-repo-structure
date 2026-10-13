@@ -95,29 +95,30 @@ This template stays bare on purpose. The items below are what production FastAPI
 
 ## Required VS Code extensions
 
-| Extension        | ID                         | Role                                                       |
-| ---------------- | -------------------------- | ---------------------------------------------------------- |
-| Python           | `ms-python.python`         | Interpreter selection (required by Flake8/Pylint)          |
-| BasedPyright     | `detachhead.basedpyright`  | Python types (LSP), whole workspace                        |
-| Ruff             | `charliermarsh.ruff`       | Python lint + format + import sorting                      |
-| Flake8           | `ms-python.flake8`         | Function length (`MFL000`)                                 |
-| Pylint           | `ms-python.pylint`         | File length (`C0302`)                                      |
-| Tach             | `gauge.tach`               | Layer violations (tach language server)                    |
-| Oxc              | `oxc.oxc-vscode`           | oxlint diagnostics + fix-on-save                           |
-| Prettier         | `esbenp.prettier-vscode`   | Formatting (uses the project's `prettier` + `.prettierrc`) |
-| Even Better TOML | `tamasfe.even-better-toml` | TOML formatting (`pyproject.toml`)                         |
+| Extension        | ID                         | Role                                                                                                                                     |
+| ---------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Python           | `ms-python.python`         | Interpreter selection (required by Flake8/Pylint)                                                                                        |
+| BasedPyright     | `detachhead.basedpyright`  | Python types (LSP), whole workspace                                                                                                      |
+| Ruff             | `charliermarsh.ruff`       | Python lint + format + import sorting                                                                                                    |
+| Flake8           | `ms-python.flake8`         | Function length (`MFL000`)                                                                                                               |
+| Pylint           | `ms-python.pylint`         | File length (`C0302`)                                                                                                                    |
+| Tach             | `detachhead.dtach`         | Layer violations (tach language server). The maintained extension from the tach repo — not the old `gauge.tach` (last released Feb 2025) |
+| Oxc              | `oxc.oxc-vscode`           | oxlint diagnostics + fix-on-save                                                                                                         |
+| Prettier         | `esbenp.prettier-vscode`   | Formatting (uses the project's `prettier` + `.prettierrc`)                                                                               |
+| Even Better TOML | `tamasfe.even-better-toml` | TOML formatting (`pyproject.toml`)                                                                                                       |
 
-Not wanted: **Pylance** (`ms-python.vscode-pylance` — clashes with BasedPyright; the Python extension installs it as part of its pack, so uninstall it after installing Python) and **ESLint** (this repo uses oxlint). The Tach extension's last release is old (Feb 2025) but it only launches `python -m tach server -c backend/tach.toml` from `backend/.venv`, so it runs the current tach (verified). `httpx2`, `pytest-asyncio` and `flake8-pyproject` are libraries/plugins, not editor tools.
+Not wanted: **Pylance** (`ms-python.vscode-pylance` — clashes with BasedPyright; the Python extension installs it as part of its pack, so uninstall it after installing Python), **ESLint** (this repo uses oxlint) and the old Tach extension **`gauge.tach`** (last release Feb 2025; the tach repo now publishes `detachhead.dtach`, same settings). The Tach extension launches `python -m tach server -c backend/tach.toml` from `backend/.venv`, so it runs the project's tach version. `httpx2`, `pytest-asyncio` and `flake8-pyproject` are libraries/plugins, not editor tools.
 
 Install from a terminal (macOS; the `code` command may not be on `PATH`):
 
 ```bash
 CODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
 for ext in ms-python.python detachhead.basedpyright charliermarsh.ruff ms-python.flake8 \
-           ms-python.pylint gauge.tach oxc.oxc-vscode esbenp.prettier-vscode tamasfe.even-better-toml; do
+           ms-python.pylint detachhead.dtach oxc.oxc-vscode esbenp.prettier-vscode tamasfe.even-better-toml; do
   "$CODE" --install-extension "$ext"
 done
 "$CODE" --uninstall-extension ms-python.vscode-pylance
+"$CODE" --uninstall-extension gauge.tach   # old Tach extension, only if installed
 ```
 
 Then **Cmd+Shift+P → Developer: Reload Window** and **Python: Select Interpreter → `backend/.venv/bin/python`**. VS Code auto-selects a global Python if the folder was opened before `backend/.venv` existed, and `python.defaultInterpreterPath` does not override that choice.
@@ -1574,6 +1575,7 @@ There is no CI workflow in this template.
 | `tach`: `Module '<root>' cannot depend on …`                                                        | The file matches no module in `tach.toml` — move the code into a feature file or add a module entry for the new kind of file                                                                                                                                                                                                                                                       |
 | Tach problems missing in the editor                                                                 | Tach extension installed; `tach.configuration` = `backend/tach.toml`; **no** `tach.interpreter`; interpreter selected = `backend/.venv`. Output → **Tach** must show `Project root: …/backend`. `Configuration file not found` = `tach.configuration` missing; `Python version undefined.undefined` = remove `tach.interpreter`. The task `backend: structure (tach)` always works |
 | Next.js editor warnings (hooks in Server Components, `'use client'` misuse) never appear            | Open a `.ts`/`.tsx` file first (the command only exists while one is active), then **TypeScript: Select TypeScript Version → Use Workspace Version** — VS Code loads the `next` plugin from `tsconfig.json` only for the workspace TypeScript                                                                                                                                      |
+| The Problems badge counts more problems than the list shows; each `tach` error is there twice       | The Tach extension starts two `tach server` processes at startup (an upstream race in `vscode/src/extension.ts` when `tach.interpreter` is unset: two "interpreter changed" events each start a server). Harmless — the list hides identical duplicates, the badge counts both. **Tach: Restart Server** doesn't remove the extra one; **Developer: Reload Window** restarts both  |
 | An old `tach` error stays on a line that is now fine                                                | The tach server ignores edits and disk changes — **Tach: Restart Server**, or close and reopen the file. Old `<tool> (task)` entries clear when that task runs again                                                                                                                                                                                                               |
 | `File '…' not found. The file is in the program because…` (source `ts`) for a file that was deleted | The TypeScript server still holds the deleted file (usually because its tab was open). Close the tab, then **TypeScript: Restart TS Server** with a `.ts`/`.tsx` file active                                                                                                                                                                                                       |
 | `tach`: `Module '…router' cannot depend on '…repository'`                                           | Go through the service — routers never touch repositories                                                                                                                                                                                                                                                                                                                          |
