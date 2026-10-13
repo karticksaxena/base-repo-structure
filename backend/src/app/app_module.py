@@ -1,3 +1,5 @@
+"""Root module (NestJS AppModule): the dishka container with every feature's Provider."""
+
 from dishka import AsyncContainer, make_async_container
 from dishka.integrations.fastapi import FastapiProvider
 

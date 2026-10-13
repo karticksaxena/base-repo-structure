@@ -7,7 +7,7 @@ Both apps start bare — add folders and libraries as features need them.
 ## What's enforced
 
 - **Size** — files ≤ 500 lines (every line counted), functions ≤ 100 code lines, lines ≤ 100 characters (backend; Prettier wraps the frontend at 100)
-- **Backend structure** (tach + `tests/test_structure.py`, verified against 101 edge cases):
+- **Backend structure** (tach + `tests/test_structure.py`, verified against 113 edge cases):
   - imports go routers → services → repositories — nothing skipped, nothing upward, also inside functions and under `if TYPE_CHECKING:`
   - another feature only through its services (only `*Service` classes leave `services/`) or schemas
   - `constants/` and `utils/` stay inside their feature; `utils/` can't reach services or repositories
@@ -63,7 +63,7 @@ In VS Code: **Tasks: Run Task → `check: all`** runs every check except the aud
 
 1. Follow [`SETUP.md`](SETUP.md) once: newest compatible versions, extensions, editor check.
 2. Go through the [ask-first list](SETUP.md#application-specific-setup--ask-the-user-first) — server, health checks, error contract, database, Redis, auth, background jobs, events, gRPC, Docker, observability — and add only what the app needs. The database, Redis and cache patterns are written out and verified in `SETUP.md`.
-3. New feature: copy `features/items/` (layer rules included), rename its modules and classes, register its router in `main.py` and its provider in `core/container.py`, add `tests/features/<name>/` — steps in [`backend/CLAUDE.md`](backend/CLAUDE.md). Never edit one feature's `tach.domain.toml`.
+3. New feature: copy `features/items/` (layer rules included), rename its modules and classes, register its router in `main.py` and its provider in `app_module.py`, add `tests/features/<name>/` — steps in [`backend/CLAUDE.md`](backend/CLAUDE.md). Never edit one feature's `tach.domain.toml`.
 4. Choose libraries and optimizations from live research, not memory (`backend/CLAUDE.md` → Performance).
 
 No CI is set up: the pre-commit hook is the gate (`git commit --no-verify` skips it).
@@ -72,8 +72,9 @@ No CI is set up: the pre-commit hook is the gate (`git commit --no-verify` skips
 
 ```
 backend/src/app/
-  main.py               # app factory: logger, routers, dishka
-  core/                 # config, logger, container
+  main.py               # app factory: logger, routers, dishka (Nest main.ts)
+  app_module.py         # root module (Nest AppModule): every feature's provider
+  core/                 # config, logger (+ database, redis) — never imports a feature
   common/               # shared by 2+ features: schemas.py (BaseSchema, Page[T]) — never imports a feature
   features/<name>/      # routers/ · services/ · repositories/ · schemas/ · constants/ · utils/ · dependencies.py · tach.domain.toml
 backend/tests/          # test_structure.py + features/<name>/ (required for every feature)

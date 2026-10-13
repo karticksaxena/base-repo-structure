@@ -239,6 +239,7 @@ max-module-lines = 500
 addopts = [
   "--strict-markers",
   "--import-mode=importlib",
+  "--continue-on-collection-errors", # an import error in one test file must not hide the structure test
   "-p",
   "no:tach",
 ] # tach's pytest plugin is not used
@@ -273,7 +274,7 @@ exclude = ["granian"] # the ASGI server is run as a command, never imported
 [[modules]]
 path = "src.app.main"
 depends_on = [
-  "src.app.core.container",
+  "src.app.app_module",
   "src.app.core.logger",
   "src.app.features.*.routers",
 ]
@@ -294,8 +295,8 @@ depends_on = []
 utility = true          # shared by every feature (NestJS common/); never imports a feature
 
 [[modules]]
-path = "src.app.core.container"
-depends_on = ["src.app.features.*.dependencies"]
+path = "src.app.app_module"                     # root module (NestJS AppModule)
+depends_on = ["src.app.features.*.dependencies"] # the only module that imports feature providers
 ```
 
 `src/app/features/<name>/tach.domain.toml` — each feature's layer rules, copied with the folder. A tach _domain_ file: paths are relative to the feature, `//` paths are absolute. Because each feature has its own file, "same feature" is expressible: services may use **their own** repositories but only **another feature's services or schemas** — exactly what a Nest module exports. `constants/` and `utils/` are the feature's own (like your team's per-module folders): every layer may read `constants/`; `utils/` may use only `schemas/` and `constants/` (+ `models/` once a database exists), so business logic can't hide there. `cannot_depend_on_external` keeps FastAPI/Starlette in routers (`tach check-external`), and the `[[interfaces]]` block lets only `*Service` classes leave `services/`. `test_structure.py` requires the file in every feature and requires it to be **identical** to `features/items/tach.domain.toml`, so one feature's rules can't be loosened quietly.
@@ -368,7 +369,7 @@ Notes (each verified by running the tool):
 - **`banned-api`** makes `from loguru import logger` an error everywhere except `core/logger.py`.
 - **flake8** runs only `MFL`. `flake8-max-function-length` counts code lines only (it skips the `def` line, docstrings, blank lines and comments — the same as oxlint's `skipBlankLines` / `skipComments`).
 - **pylint** runs only `too-many-lines` (`C0302`). It counts **every** line, blank and comment lines included — the frontend's `max-lines` is set to count every line too. Ruff has no line-count rule (checked in Ruff 0.17: only `PLR0915` statement counts and `C901` complexity).
-- **tach** (rules in `tach.toml`, next section) mirrors a production NestJS layout — feature modules (`features/`), app-wide setup (`core/`, like Nest's `config/` + app module), shared code (`common/`, Nest's `common/`/`shared/`) — and checks imports between them: a router importing a repository fails (`Module 'src.app.features.items.routers' cannot depend on 'src.app.features.items.repositories'`), a repository importing a service fails, and with `root_module = "forbid"` a file that matches no module (e.g. `features/items/helpers.py`) fails as `Module '<root>' cannot depend on …` — but only if it imports or is imported; `test_structure.py` rejects it either way. Another feature's repositories, routers or dependencies are rejected too (`Module 'src.app.features.items.services' cannot depend on 'src.app.features.orders.repositories'`), through the per-feature domain files. Verified against NestJS's rules with 101 edge cases — every layer direction (own and other feature, `constants/`, `utils/`, `core/`, `common/`, `main`), import forms (inside a function, under `if TYPE_CHECKING:`, in `try/except`, `import … as`, star, relative, dynamic), a repository re-exported through a service module, a feature cycle, FastAPI in services/repositories/schemas, stray files and folders that import nothing, a loosened `tach.domain.toml`, a feature without tests, and `# tach-ignore` / `# noqa: TID251` / blanket `# noqa` / `# type: ignore`: 101/101 behave like Nest.
+- **tach** (rules in `tach.toml`, next section) mirrors a production NestJS layout — feature modules (`features/`), the root module (`app_module.py`, Nest's `AppModule`), app-wide setup (`core/`, like Nest's `config/` and database setup), shared code (`common/`, Nest's `common/`/`shared/`) — and checks imports between them: a router importing a repository fails (`Module 'src.app.features.items.routers' cannot depend on 'src.app.features.items.repositories'`), a repository importing a service fails, and with `root_module = "forbid"` a file that matches no module (e.g. `features/items/helpers.py`) fails as `Module '<root>' cannot depend on …` — but only if it imports or is imported; `test_structure.py` rejects it either way. Another feature's repositories, routers or dependencies are rejected too (`Module 'src.app.features.items.services' cannot depend on 'src.app.features.orders.repositories'`), through the per-feature domain files. Verified against NestJS's rules with 113 edge cases — every layer direction (own and other feature, `constants/`, `utils/`, `core/`, `common/`, `main`, the root module `app_module.py`: only it imports feature providers, only `main.py` imports it), import forms (inside a function, under `if TYPE_CHECKING:`, in `try/except`, `import … as`, star, relative, dynamic), a repository re-exported through a service module, a feature cycle, FastAPI in services/repositories/schemas, stray files and folders that import nothing, a loosened `tach.domain.toml`, a feature without tests, and `# tach-ignore` / `# noqa: TID251` / blanket `# noqa` / `# type: ignore`: 113/113 behave like Nest.
 - **`tach check-external`** compares imports with `pyproject.toml`: a package imported but not declared (e.g. `pydantic`, which only arrives through FastAPI) or declared but never imported fails. `granian` is excluded in `tach.toml` (`[external] exclude`) because it runs as a command. The tach extension shows the same errors live (`Dependency 'pydantic' is not declared in package 'backend'`).
 - **`test_structure.py`** covers what tach can't see: a file or folder outside the layout that imports nothing (tach only flags code that imports or is imported), a feature whose `tach.domain.toml` differs from `items`', a feature without `tests/features/<name>/test_*.py`, a `core/` file without a `tach.toml` module, and code that gets around the checks (`# tach-ignore`, `# noqa: TID…`, `reportImportCycles` ignores, `__import__(` / `import_module(`). Ruff `TID251` also bans `importlib.import_module`, and `PGH` rejects blanket `# noqa` / `# type: ignore`.
 - **pytest 9** reads the native `[tool.pytest]` table (header shows `configfile: pyproject.toml`, `asyncio: mode=Mode.AUTO`).
@@ -383,11 +384,11 @@ backend/
 ├── .env.example            ← settings to copy into .env (LOG_LEVEL, LOG_FORMAT)
 ├── uv.lock
 ├── src/app/
-│   ├── main.py             ← create_app(): logger, routers, dishka (Nest AppModule + main.ts)
-│   ├── core/               ← app-wide setup — never imports a feature (only container.py imports feature providers)
+│   ├── main.py             ← create_app(): logger, routers, dishka (Nest main.ts)
+│   ├── app_module.py       ← root module (Nest AppModule): dishka container with every feature's Provider — the only file that imports feature providers
+│   ├── core/               ← app-wide setup (Nest config/ + database setup) — never imports a feature
 │   │   ├── config.py       ← Settings (pydantic-settings, reads .env)
-│   │   ├── logger.py       ← loguru setup; the only place loguru is imported
-│   │   └── container.py    ← dishka container: every feature's Provider
+│   │   └── logger.py       ← loguru setup; the only place loguru is imported
 │   ├── common/             ← code shared by 2+ features (NestJS common/) — never imports a feature
 │   │   └── schemas.py      ← BaseSchema, Page[T], Limit/Offset (below)
 │   └── features/
@@ -412,9 +413,10 @@ backend/
 │           ├── dependencies.py dishka Provider — Nest module `providers`
 │           └── tach.domain.toml this feature's layer rules (identical in every feature)
 └── tests/
-    ├── conftest.py         ← TestClient fixture (fresh app + container per test)
     ├── test_structure.py   ← fails on a missing or extra folder/file, edited layer rules, missing tests, bypasses
-    └── features/items/     ← mirrors src/app/features/
+    └── features/
+        ├── conftest.py     ← TestClient fixture (fresh app + container per test); here, not in tests/, so the structure test runs even when the app can't be imported
+        └── items/          ← mirrors src/app/features/
 ```
 
 Once a database exists, every feature also gets `models/` (SQLAlchemy models — Nest entities); see [Database pattern](#7-libraries-by-use-case).
@@ -432,13 +434,13 @@ Responses: routes declare a Pydantic return type and no `response_class`, so Fas
 Rules the tools enforce (details: `backend/CLAUDE.md` → NestJS-style structure):
 
 - Every feature has `__init__.py`, `routers/`, `services/`, `repositories/`, `schemas/`, `constants/`, `utils/` (each a package with `__init__.py`), `dependencies.py`, `tach.domain.toml` (identical to `items`') and `tests/features/<name>/test_*.py` — and nothing else; `src/` holds only the layout; no bypass comments — `tests/test_structure.py`
-- Imports go routers → services → repositories only; another feature is reachable only through its `services` (and `schemas` for DTO types), and only `*Service` classes leave `services/`; `constants/` and `utils/` are visible only inside the feature; files in the same layer folder may import each other; FastAPI/Starlette only in routers, `dependencies.py`, `main.py`, `core/` and `common/` — never in services, repositories, schemas, `constants/` or `utils/` (`tach check-external`) — tach
+- Imports go routers → services → repositories only; another feature is reachable only through its `services` (and `schemas` for DTO types), and only `*Service` classes leave `services/`; `constants/` and `utils/` are visible only inside the feature; files in the same layer folder may import each other; FastAPI/Starlette only in routers, `dependencies.py`, `main.py`, `app_module.py`, `core/` and `common/` — never in services, repositories, schemas, `constants/` or `utils/` (`tach check-external`) — tach
 - One module per use-case area inside a layer folder (`services/items.py`, `services/item_exports.py`); split a file before it reaches 500 lines
 
 Adding a feature `orders`:
 
 1. Copy `src/app/features/items/` to `src/app/features/orders/` (its `tach.domain.toml` comes along — never edit it in one feature); rename the files inside the layer folders (`routers/items.py` → `routers/orders.py`, …), the classes and every import (tach rejects any import still pointing at `items`); point `routers/__init__.py` at the new router module.
-2. Register the feature's `router` in `main.py` (`from src.app.features.orders.routers import router as orders_router` → `app.include_router(orders_router)`) and its provider in `core/container.py`.
+2. Register the feature's `router` in `main.py` (`from src.app.features.orders.routers import router as orders_router` → `app.include_router(orders_router)`) and its provider in `app_module.py`.
 3. Add `tests/features/orders/test_*.py` (the structure test requires it).
 4. Run [Verify CLI](#verify-cli). tach already covers the new folder through the `features.*` globs.
 
@@ -469,9 +471,11 @@ class ItemsProvider(Provider):
         return ItemService(repository)
 ```
 
-`core/container.py`:
+`app_module.py` — the root module, like Nest's `app.module.ts` next to `main.ts`:
 
 ```python
+"""Root module (NestJS AppModule): the dishka container with every feature's Provider."""
+
 from dishka import AsyncContainer, make_async_container
 from dishka.integrations.fastapi import FastapiProvider
 
@@ -745,8 +749,8 @@ The service keeps returning Pydantic schemas: it maps models to `ItemResponse`, 
 
 Wiring checklist:
 
-- `uv add "sqlalchemy[asyncio]" asyncpg` (and `alembic`); `database_url: SecretStr` in `Settings` (`postgresql+asyncpg://…` in `.env`, add it to `.env.example`); add `DatabaseProvider()` to `create_container()`
-- `backend/tach.toml`: add `"asyncpg"` (and `"aiosqlite"` if used for tests) to `[external] exclude` — database drivers are loaded from the URL, never imported, so `tach check-external` would report them as unused (verified); add a module `src.app.core.database` (`depends_on = []`) and add `"src.app.core.database"` to `src.app.core.container`'s `depends_on`
+- `uv add "sqlalchemy[asyncio]" asyncpg` (and `alembic`); `database_url: SecretStr` in `Settings` (`postgresql+asyncpg://…` in `.env`, add it to `.env.example`); add `DatabaseProvider()` to `create_container()` in `app_module.py`
+- `backend/tach.toml`: add `"asyncpg"` (and `"aiosqlite"` if used for tests) to `[external] exclude` — database drivers are loaded from the URL, never imported, so `tach check-external` would report them as unused (verified); add a module `src.app.core.database` (`depends_on = []`) and add `"src.app.core.database"` to `src.app.app_module`'s `depends_on`
 - **Every** feature gets a `models/` package (empty if it has no tables): add `"models"` to `REQUIRED_PACKAGES` in `tests/test_structure.py`, replace `features/items/tach.domain.toml` with the version below (repositories, services and utils may use `models`; models may use `constants`) and copy it to every feature — the structure test requires identical copies (verified on the DB build):
 
 ```toml
@@ -996,8 +1000,8 @@ Verified behaviour (SQLite + fakeredis): first read misses → loads from the da
 Wiring checklist:
 
 - `uv add redis` (latest stable); `uv add --dev fakeredis` for tests (`FakeAsyncRedis(decode_responses=True)`, provided in place of `RedisProvider`)
-- `redis_url: SecretStr` in `Settings` (`redis://user:pass@host:6379/0` in `.env`, add it to `.env.example`); add `RedisProvider()` to `create_container()`
-- `backend/tach.toml`: add a module `src.app.core.redis` (`depends_on = []`) and add `"src.app.core.redis"` to `src.app.core.container`'s `depends_on`
+- `redis_url: SecretStr` in `Settings` (`redis://user:pass@host:6379/0` in `.env`, add it to `.env.example`); add `RedisProvider()` to `create_container()` in `app_module.py`
+- `backend/tach.toml`: add a module `src.app.core.redis` (`depends_on = []`) and add `"src.app.core.redis"` to `src.app.app_module`'s `depends_on`
 - Keys always through `self.key(...)` so every key carries the feature prefix; every write has a TTL unless there is a reason not to
 - Caching pattern: cache-aside (above) by default; delete the key after a write, never update it in place. Write-through only when a read right after a write must come from the cache; never write-behind (data loss if Redis fails before the flush)
 
@@ -1577,7 +1581,7 @@ There is no CI workflow in this template.
 | `test_feature_has_nothing_else` / `test_app_has_nothing_else` fails                                 | A file or folder sits outside the layout — move the code into a layer folder (one feature) or `common/` (2+ features). A genuinely new kind of folder: ask first, then add it to the layer rules and `REQUIRED_PACKAGES`                                                                                                                                                           |
 | `test_feature_layer_rules_match_the_template` fails                                                 | One feature's `tach.domain.toml` was edited — copy `features/items/tach.domain.toml` over it. Rule changes go into `items`' file and are copied to every feature (ask first)                                                                                                                                                                                                       |
 | `test_feature_has_tests` fails                                                                      | Add `tests/features/<name>/test_*.py` for the feature                                                                                                                                                                                                                                                                                                                              |
-| `test_core_files_have_layer_rules` fails                                                            | A new `core/` file needs a `[[modules]]` entry in `tach.toml` (e.g. `src.app.core.database`, `depends_on = []`) and a line in `src.app.core.container`'s `depends_on` if the container uses it                                                                                                                                                                                     |
+| `test_core_files_have_layer_rules` fails                                                            | A new `core/` file needs a `[[modules]]` entry in `tach.toml` (e.g. `src.app.core.database`, `depends_on = []`) and a line in `src.app.app_module`'s `depends_on` if the root module uses it                                                                                                                                                                                       |
 | `test_nothing_gets_around_structure_checks` fails                                                   | Remove the `# tach-ignore`, `# noqa: TID…`, `reportImportCycles` ignore, `__import__(` or `import_module(` and fix the import instead                                                                                                                                                                                                                                              |
 | tach output says `run 'tach sync' to update your module configuration`                              | Never run it — it rewrites `tach.toml` / `tach.domain.toml` to allow the imports that broke the rules. Fix the import instead                                                                                                                                                                                                                                                      |
 | `tach`: `… is not part of the public interface for '…services'`                                     | Only service classes leave `services/` — import `ItemService`, never a repository or a whole module through `services/`                                                                                                                                                                                                                                                            |
@@ -1637,7 +1641,7 @@ There is no CI workflow in this template.
 │   ├── pyproject.toml          ← backend rules (Ruff, BasedPyright, flake8, pylint, pytest)
 │   ├── tach.toml               ← app-level layer rules (features: src/app/features/*/tach.domain.toml)
 │   ├── .python-version, uv.lock, .env.example
-│   ├── src/app/                ← main.py, core/, features/<name>/
+│   ├── src/app/                ← main.py, app_module.py, core/, common/, features/<name>/
 │   └── tests/                  ← test_structure.py + features/ mirror
 └── frontend/                   ← Next.js (App Router, src/, Tailwind, Turbopack)
     ├── CLAUDE.md, AGENTS.md    ← frontend rules + Next's agent rules
