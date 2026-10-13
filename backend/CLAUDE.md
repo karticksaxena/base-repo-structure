@@ -94,6 +94,15 @@ Edit `features/items/tach.domain.toml`, then copy it to every feature: `find src
     - One client/pool per external service for the whole app (dishka `Scope.APP`); `Scope.REQUEST` only for per-request state; Redis `pipeline()` for batches
     - Production: `--workers` = CPU cores on Granian (default) or uvicorn (one worker per container under an orchestrator); stay on the GIL build of Python and off the experimental JIT until their support is production-ready
     - Speed comes from Pydantic's Rust core, Granian, asyncpg and query design — dishka and SQLAlchemy are chosen for structure, not speed
+13. **HTTP API DESIGN** — the URL names the record; the body carries the change:
+    - Path: plural nouns and ids only (`/orders/{order_id}`), no verbs
+    - Query: filters, sorting, `limit` / `offset` — on `GET` only
+    - Body: create/update data as a schema; none on `GET` or `DELETE`
+    - Headers: auth and request metadata (`Idempotency-Key`), never business data
+    - Methods: `GET` reads · `POST /orders` creates (201) · `PATCH /orders/{order_id}` updates the fields sent · `DELETE /orders/{order_id}` deletes (204); `PUT` only to replace a whole record
+    - Never secrets or personal data in the path or query — servers, proxies and browsers log URLs (RFC 9110 §17.9)
+    - The acting user comes from auth (a dishka provider), never from a header the client sets
+    - A `POST` that must be safe to retry (payments) takes an `Idempotency-Key`; add it only when an endpoint needs it
 
 ## Tests
 
