@@ -32,7 +32,7 @@ Once per clone:
 git config core.hooksPath .githooks   # pre-commit hook: runs the checks below (except build and audits), blocks failing commits
 ```
 
-In VS Code: install the recommended extensions (Pylance and ESLint not wanted), then **Python: Select Interpreter → `backend/.venv`** and, with a `.tsx` file open, **TypeScript: Select TypeScript Version → Use Workspace Version** (Next.js plugin). Problems then show Ruff, BasedPyright, Flake8 (function length), Pylint (file length), tach (structure), oxc, TypeScript and Next.js rules — details in [`SETUP.md`](SETUP.md). After files change outside the editor, run **Tach: Restart Server** (tach doesn't watch the disk).
+In VS Code: install the recommended extensions (Pylance, ESLint and the old `gauge.tach` not wanted), then **Python: Select Interpreter → `backend/.venv`** and, with a `.tsx` file open, **TypeScript: Select TypeScript Version → Use Workspace Version** (Next.js plugin). Problems then show Ruff, BasedPyright, Flake8 (function length), Pylint (file length), tach (structure), oxc, TypeScript and Next.js rules — details in [`SETUP.md`](SETUP.md). After files change outside the editor, run **Tach: Restart Server** (tach doesn't watch the disk).
 
 ## Checks
 
