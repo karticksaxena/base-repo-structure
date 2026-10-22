@@ -106,7 +106,7 @@ load-plugins = ["pylint_construction"]                # tests/pylint_constructio
 
 [tool.pylint."messages control"]
 disable = ["all"]
-enable = ["too-many-lines", "construction-outside-provider"]
+enable = ["too-many-lines", "construction-outside-provider", "construction-through-depends"]
 
 [tool.pylint.format]
 max-module-lines = 500
