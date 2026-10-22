@@ -109,6 +109,7 @@ Edit `features/items/tach.domain.toml`, then copy it to every feature: `find src
     - Never secrets or personal data in the path or query — servers, proxies and browsers log URLs (RFC 9110 §17.9)
     - The acting user comes from auth (a dishka provider), never from a header the client sets
     - A `POST` that must be safe to retry (payments) takes an `Idempotency-Key`; add it only when an endpoint needs it
+    - Route function names are `<verb>_<noun>` (`list_items`, `create_order`) and unique across the app — once Hey API is added they become the OpenAPI operation ids and the frontend's function names (`listItems`), and `tests/test_openapi.py` fails on a duplicate
 
 ## Tests
 

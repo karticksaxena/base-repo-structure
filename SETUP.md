@@ -82,7 +82,7 @@ This template stays bare on purpose. The items below are what production FastAPI
 | backend  | **gRPC** (service-to-service calls)                                     | `grpcio` (official; async API `grpc.aio`; Python 3.15 wheels) + `grpcio-tools` (code from `.proto` files), plus `grpcio-health-checking` / `grpcio-reflection`; dishka ships a `grpcio` integration. Alternatives: `betterproto2` (typed dataclass code) or Connect RPC (`connect-python`, also speaks HTTP/JSON) — both pre-1.0. Your team ran gRPC servers and clients between services. Layout: a feature's server handlers in `grpc/` (like `routers/`: they call only `services` and `schemas`; added to the layer rules and `REQUIRED_PACKAGES` like `tasks/`), outgoing clients in `repositories/` (another data source); generated code in its own folder, excluded from the linters; the gRPC server runs on its own port next to the HTTP app. Research the current setup when chosen                                                                                                                                                                                                                                                                                                                                                                                              | another service calls this one, or this one calls another service over gRPC    |
 | backend  | **Agent framework — ask if the app runs AI agents**                     | **Google ADK** (default; you know it) or **AWS Strands** (more control, native Bedrock). **ADK**: `DatabaseSessionService` on Postgres is async (asyncpg), locks the session row and rejects stale writes, so it works across Granian workers; `list_sessions(app_name=…, user_id=…)` lists a user's threads; the AG-UI adapter (`ag-ui-adk`) defaults to in-memory sessions, so pass the database service and set `use_thread_id_as_session_id=True`; call models through the built-in `AnthropicLlm` / `Claude` / Gemini classes or a `BaseLlm` subclass, not LiteLLM. **Strands**: sessions have no user ID and no lock, so you add a threads table (`user_id`) and a Redis lock per thread (`redis.asyncio`); on several workers build a fresh agent per request (the AG-UI adapter caches one agent per thread in each worker and never reloads it), and keep session storage async (the record-based `SessionRepository` is sync, and snapshot restore blocks the event loop). Both: the user comes from auth, check thread ownership on every request, reject a missing `thread_id`. Needs the Database and Auth rows (and Redis for Strands). Research the current setup when chosen | the app runs LLM agents or chat threads                                        |
 | backend  | Seed scripts                                                            | an idempotent `scripts/seed.py` for dev/test data                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | dev environments need sample data                                              |
-| both     | **Frontend types from OpenAPI — ask if the frontend calls the backend** | **Hey API** (`@hey-api/openapi-ts`, the TypeScript generator FastAPI's docs recommend) turns the backend's OpenAPI schema into TypeScript types and an SDK, so the frontend can't drift from the API. Pre-1.0 and not semver: install an exact version (`pnpm add -D -E @hey-api/openapi-ts`) and read its migration notes before each upgrade; needs Node ≥ 22.18. Generate from `http://localhost:8000/openapi.json` (or an exported `openapi.json`) into `src/lib/api/` (the frontend's API-client folder) with the `@hey-api/client-next` client (server-side fetch, `frontend/CLAUDE.md` rule 2), plus its `zod` plugin once Zod is added. Backend: set `generate_unique_id_function` in `main.py` (first tag + route name) — FastAPI's default operation IDs repeat path and method (`createItemItemsPost`). Run the frontend checks after generating; if the generated folder fails oxlint or Prettier, add it to `ignorePatterns` / `.prettierignore` — never hand-edit generated files. Alternatives: `openapi-typescript` (types only), `orval` (types, client, query hooks). Research the current setup when chosen                                                               | the frontend calls the backend                                                 |
+| both     | **Frontend types from OpenAPI — ask if the frontend calls the backend** | **Hey API** (`@hey-api/openapi-ts`, the TypeScript generator FastAPI's docs recommend) turns the backend's OpenAPI schema into TypeScript types and an SDK (plus Zod validation once Zod is approved), so the frontend can't drift from the API. Pre-1.0 and not semver: exact-version install. Setup verified end to end — see [Hey API pattern](#hey-api-pattern-frontend-types-from-openapi). Alternatives: `openapi-typescript` (types only), `orval` (types, client, query hooks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | the frontend calls the backend                                                 |
 | backend  | Structure rule changes                                                  | a new kind of feature folder (beyond `tasks/`, `listeners/`, `grpc/`) or any change to `features/items/tach.domain.toml`, `tach.toml` or the structure test — copied to every feature                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | the layout doesn't fit a real need                                             |
 | backend  | Hard delete / purging old rows                                          | real `DELETE`s or a job that purges soft-deleted rows after a retention period (the template only soft-deletes)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | privacy requests (GDPR), storage limits                                        |
 | frontend | Security headers / CSP                                                  | `headers()` in `next.config.ts`: `X-Content-Type-Options`, `Referrer-Policy`, frame protection, `poweredByHeader: false`; CSP later                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | the app gets deployed                                                          |
@@ -1268,6 +1268,124 @@ Add only when a feature needs them (rules in `frontend/CLAUDE.md`):
 | Validation (forms, backend responses) | **Zod**                                            | `pnpm add zod`                                                                                                                                                   |
 | Agent chat / agent UI                 | **CopilotKit** over AG-UI (+ A2UI for rich blocks) | `pnpm add @copilotkit/react-core @copilotkit/runtime @ag-ui/client`; use the newest entry point its docs recommend; runtime in `src/app/api/copilotkit/route.ts` |
 
+### Hey API pattern (frontend types from OpenAPI)
+
+Added only when the user approves it ([Application-specific setup](#application-specific-setup--ask-the-user-first)). Every step below was run end to end on a copy of this template — generated from the backend, every backend and frontend check green, the SDK called against a running backend, and a Server Component rendering live data.
+
+**Install** — Hey API is pre-1.0 and doesn't follow semver, so pin the exact version and upgrade it on purpose (read its migration notes, then regenerate). It needs Node ≥ 22.18. The HTTP client and helpers are generated into the output folder, so there is no runtime dependency.
+
+```bash
+cd frontend
+pnpm add -D -E @hey-api/openapi-ts
+pnpm add zod                       # only if Zod is approved; the generated SDK then validates requests and responses
+pnpm pkg set scripts.openapi-ts=openapi-ts
+```
+
+**Backend** — FastAPI's default operation ids repeat the path and method, so the SDK would export `createItemItemsPost` and `listItemsItemsGet`. Use the route function's name instead (`createItem`, `listItems`) in `main.py`:
+
+```python
+from fastapi.routing import APIRoute
+
+
+def operation_id(route: APIRoute) -> str:
+    """OpenAPI operation id = the route function's name, so generated clients get `listItems`."""
+    return route.name
+
+
+# in create_app():
+app = FastAPI(title="Backend", lifespan=lifespan, generate_unique_id_function=operation_id)
+```
+
+Route function names must then be unique across the app. FastAPI warns on a duplicate (`UserWarning: Duplicate Operation ID list_items …`), and `tests/test_openapi.py` turns that warning into a failure (verified with a duplicate):
+
+```python
+"""Generated frontend clients name their functions after OpenAPI operation ids."""
+
+import pytest
+
+
+@pytest.mark.unit
+def test_operation_ids_are_unique() -> None:
+    from src.app.main import create_app  # imported here so the structure test runs without the app
+
+    # a duplicate id is a UserWarning, which filterwarnings = ["error"] turns into a failure
+    assert create_app().openapi()["paths"]
+```
+
+**Generate** — export the schema, then generate. Commit `backend/openapi.json` and `frontend/src/lib/api/` (a fresh clone must typecheck without a running backend), and rerun both commands after every change to a route or schema:
+
+```bash
+cd backend && uv run python -c "import json; from src.app.main import app; json.dump(app.openapi(), open('openapi.json', 'w'), indent=2)"
+cd ../frontend && pnpm run openapi-ts
+```
+
+`frontend/openapi-ts.config.ts`:
+
+```ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: '../backend/openapi.json',
+  output: 'src/lib/api',
+  plugins: [
+    { name: '@hey-api/client-next', runtimeConfigPath: './src/lib/hey-api' },
+    'zod', // with Zod only
+    { name: '@hey-api/sdk', validator: 'zod' }, // with Zod only
+  ],
+});
+```
+
+`frontend/src/lib/hey-api.ts` — the backend URL, read on the server:
+
+```ts
+import type { CreateClientConfig } from './api/client.gen';
+
+// Server-side calls go straight to the backend (frontend/CLAUDE.md rule 2).
+export const createClientConfig: CreateClientConfig = (config) => ({
+  ...config,
+  baseUrl: process.env.BACKEND_URL ?? 'http://localhost:8000',
+});
+```
+
+- `runtimeConfigPath` is relative to `frontend/` and has **no** `.ts` extension. Hey API's docs show `'./src/hey-api.ts'`, but the generated import then ends in `.ts` and `tsc` fails (`TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled`).
+- **Keep the generated folder out of oxlint and Prettier** — add `"src/lib/api/"` to `ignorePatterns` in `.oxlintrc.json` and `src/lib/api` to `.prettierignore`. Without that, `pnpm run lint` reports 83 problems in it (29 errors: `no-unsafe-assignment`, `no-explicit-any`, `explicit-function-return-type`, `max-lines-per-function`, …) and `format:check` fails on 9 files. `tsc` still checks it and passes with `strict`, `noUncheckedIndexedAccess` and `verbatimModuleSyntax`. Never edit it to satisfy a linter — regenerate instead. (Ignore behaviour verified in the CLI; the editor reads the same two files.)
+
+**Use** — wrap the generated calls in `src/lib/` so components get plain typed data (`throwOnError: true` makes `data` non-optional):
+
+```ts
+import { createItem, listItems, type ItemResponse, type PageItemResponse } from './api';
+
+export async function addItem(name: string): Promise<ItemResponse> {
+  const { data } = await createItem({ body: { name }, throwOnError: true });
+  return data;
+}
+
+export async function itemsPage(limit: number, offset: number): Promise<PageItemResponse> {
+  const { data } = await listItems({ query: { limit, offset }, throwOnError: true });
+  return data;
+}
+```
+
+```tsx
+// src/app/items/page.tsx — a Server Component; `connection()` renders it per request, not at build time
+import { connection } from 'next/server';
+import { itemsPage } from '@/lib/items';
+
+export default async function ItemsPage(): Promise<React.JSX.Element> {
+  await connection();
+  const page = await itemsPage(20, 0);
+  return (
+    <ul>
+      {page.items.map((item) => (
+        <li key={item.id}>{item.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+Verified on the copy: `lint`, `typecheck`, `format:check`, `test` and `build` pass, as do all nine backend checks and the new test. Against a running backend the SDK created and listed items; a response that broke the schema threw a `ZodError`; `limit=0` failed with a `ZodError` before any request was sent (the backend's `Limit` 1–100 reaches the client); and `next start` served `/items` with an item created after the server started. Tests in the template still never call the real backend (`frontend/CLAUDE.md`) — mock the SDK or pass `fetch` (`listItems({ fetch: fakeFetch })`).
+
 ### Verify CLI (frontend)
 
 ```bash
@@ -1572,6 +1690,8 @@ Then run [Verify CLI](#verify-cli) and the [editor smoke test](#verify-editor-sm
 | ------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
 | `typescript`  | 6                   | TypeScript 7 passes `tsc`, oxlint and `next build`, but ships no `lib/tsserver.js`, so VS Code's project diagnostics and the Next.js plugin don't work | VS Code's built-in TypeScript supports 7 with project diagnostics |
 | `@types/node` | Node LTS major (24) | must match the Node version in use (`.nvmrc` = `lts/*`), not the newest Node                                                                           | the next Node LTS                                                 |
+
+Hey API (once added) is pinned to an exact version on purpose (pre-1.0, breaking changes in minor releases): `pnpm update` leaves it alone; upgrade it with `pnpm add -D -E @hey-api/openapi-ts@latest` after reading its migration notes, then regenerate and run every check.
 
 Python is the newest stable CPython (`.python-version`, `requires-python`, `pythonVersion`, Ruff `target-version` — keep all four equal); upgrade uv first (`brew upgrade uv`), since its list of Python builds ships with it.
 
