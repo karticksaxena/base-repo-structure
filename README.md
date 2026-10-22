@@ -7,16 +7,16 @@ Both apps start bare — add folders and libraries as features need them.
 ## What's enforced
 
 - **Size** — files ≤ 500 lines (every line counted), functions ≤ 100 code lines, lines ≤ 100 characters (backend; Prettier wraps the frontend at 100)
-- **Backend structure** (tach, import-linter, a pylint plugin and `tests/test_structure.py`; verified against 113 + 24 edge cases):
+- **Backend structure** (tach, import-linter, a pylint plugin and `tests/test_structure.py`; verified against 113 + 37 edge cases):
   - imports go routers → services → repositories — nothing skipped, nothing upward, also inside functions and under `if TYPE_CHECKING:`
   - another feature only through its services (only `*Service` classes leave `services/`) or schemas
   - features never import each other in a loop (Nest rejects module cycles without `forwardRef()`)
-  - services and repositories are built only in the feature's `dependencies.py` (dishka wires them; tests may build them)
+  - services and repositories are built only in the feature's `dependencies.py` — never in a route or through `Depends()` (dishka wires them; tests may build them)
   - `constants/` and `utils/` stay inside their feature; `utils/` can't reach services or repositories
   - FastAPI only in routers, never in services, repositories or schemas
   - every feature has the same folders, identical layer rules and its own tests; no stray files; no comments or dynamic imports that switch a check off
 - **Code** — strict types (BasedPyright `recommended`, `tsc` strict); Pydantic v2 API only; schemas reject unknown fields; list endpoints return `Page[T]`; UUIDv7 ids; any warning fails the tests
-- **Not caught by a tool** — business logic inside routers (keep it in services; code review); building a service or repository outside `dependencies.py` through an alias, `type(x)()`, a factory classmethod or `getattr` (the plugin matches names only)
+- **Not caught by a tool** — business logic inside routers (keep it in services; code review); building a service or repository outside `dependencies.py` through an alias, `type(x)()`, a factory classmethod, `getattr` or `Depends(SomeService.factory)` (the plugin matches names only)
 
 ## Quick start
 

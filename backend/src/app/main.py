@@ -1,6 +1,7 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from dishka import Provider
 from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI
 
@@ -9,9 +10,9 @@ from src.app.core.logger import setup_logger
 from src.app.features.items.routers import router as items_router
 
 
-def create_app() -> FastAPI:
+def create_app(*overrides: Provider) -> FastAPI:
     setup_logger()
-    container = create_container()
+    container = create_container(*overrides)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
