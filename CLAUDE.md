@@ -24,9 +24,10 @@ uv run ruff check src tests          # lint, banned imports
 uv run ruff format --check src tests # format
 uv run basedpyright                  # types, import cycles
 uv run flake8 src tests              # functions <= 100 code lines
-uv run pylint src tests              # files <= 500 lines
+uv run pylint src tests              # files <= 500 lines; services/repositories built only in dependencies.py
 uv run tach check                    # NestJS-style layers (backend/CLAUDE.md)
 uv run tach check-external           # declared dependencies; FastAPI only in routers
+uv run lint-imports                  # no import loops between features
 uv run pytest -q                     # tests + feature layout (tests/test_structure.py)
 
 # frontend/

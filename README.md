@@ -7,9 +7,11 @@ Both apps start bare — add folders and libraries as features need them.
 ## What's enforced
 
 - **Size** — files ≤ 500 lines (every line counted), functions ≤ 100 code lines, lines ≤ 100 characters (backend; Prettier wraps the frontend at 100)
-- **Backend structure** (tach + `tests/test_structure.py`, verified against 113 edge cases):
+- **Backend structure** (tach, import-linter, a pylint plugin and `tests/test_structure.py`; verified against 113 + 24 edge cases):
   - imports go routers → services → repositories — nothing skipped, nothing upward, also inside functions and under `if TYPE_CHECKING:`
   - another feature only through its services (only `*Service` classes leave `services/`) or schemas
+  - features never import each other in a loop (Nest rejects module cycles without `forwardRef()`)
+  - services and repositories are built only in the feature's `dependencies.py` (dishka wires them; tests may build them)
   - `constants/` and `utils/` stay inside their feature; `utils/` can't reach services or repositories
   - FastAPI only in routers, never in services, repositories or schemas
   - every feature has the same folders, identical layer rules and its own tests; no stray files; no comments or dynamic imports that switch a check off
@@ -32,7 +34,7 @@ Once per clone:
 git config core.hooksPath .githooks   # pre-commit hook: runs the checks below (except build and audits), blocks failing commits
 ```
 
-In VS Code: install the recommended extensions (Pylance, ESLint and the old `gauge.tach` not wanted), then **Python: Select Interpreter → `backend/.venv`** and, with a `.tsx` file open, **TypeScript: Select TypeScript Version → Use Workspace Version** (Next.js plugin). Problems then show Ruff, BasedPyright, Flake8 (function length), Pylint (file length), tach (structure), oxc, TypeScript and Next.js rules — details in [`SETUP.md`](SETUP.md). After files change outside the editor, run **Tach: Restart Server** (tach doesn't watch the disk).
+In VS Code: install the recommended extensions (Pylance, ESLint and the old `gauge.tach` not wanted), then **Python: Select Interpreter → `backend/.venv`** and, with a `.tsx` file open, **TypeScript: Select TypeScript Version → Use Workspace Version** (Next.js plugin). Problems then show Ruff, BasedPyright, Flake8 (function length), Pylint (file length, construction), tach (structure), oxc, TypeScript and Next.js rules — details in [`SETUP.md`](SETUP.md). After files change outside the editor, run **Tach: Restart Server** (tach doesn't watch the disk).
 
 ## Checks
 
@@ -42,9 +44,10 @@ uv run ruff check src tests          # lint (incl. banned imports, no blanket no
 uv run ruff format --check src tests # format
 uv run basedpyright                  # types, import cycles
 uv run flake8 src tests              # functions <= 100 code lines
-uv run pylint src tests              # files <= 500 lines
+uv run pylint src tests              # files <= 500 lines; services/repositories built only in dependencies.py
 uv run tach check                    # layers: routers -> services -> repositories, constants/, utils/
 uv run tach check-external           # declared dependencies; FastAPI only in routers
+uv run lint-imports                  # no import loops between features
 uv run pytest                        # tests + feature layout (folders, layer rules, tests, bypasses)
 uv run pip-audit                     # dependency vulnerabilities
 
@@ -77,7 +80,7 @@ backend/src/app/
   core/                 # config, logger (+ database, redis) — never imports a feature
   common/               # shared by 2+ features: schemas.py (BaseSchema, Page[T]) — never imports a feature
   features/<name>/      # routers/ · services/ · repositories/ · schemas/ · constants/ · utils/ · dependencies.py · tach.domain.toml
-backend/tests/          # test_structure.py + features/<name>/ (required for every feature)
+backend/tests/          # test_structure.py, pylint_construction.py (pylint plugin) + features/<name>/ (required for every feature)
 frontend/src/app/       # Next.js App Router
 ```
 

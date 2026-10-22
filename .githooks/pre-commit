@@ -12,6 +12,7 @@ uv run flake8 src tests
 uv run pylint src tests
 uv run tach check
 uv run tach check-external
+uv run lint-imports --no-logo
 uv run pytest -q
 
 cd "$root/frontend"
