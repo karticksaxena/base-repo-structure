@@ -20,6 +20,7 @@ dev = [
   "flake8-pyproject>=1.2.4",
   "granian[reload]>=2.8.4",
   "httpx2>=2.13.1",
+  "import-linter>=2.15",
   "pip-audit>=2.10.1",
   "pylint>=4.1.2",
   "pytest>=9.1.1",
@@ -98,13 +99,27 @@ select = ["MFL"]                   # only flake8-max-function-length; Ruff does 
 max-function-length = 100
 exclude = [".venv", "__pycache__"]
 
-# --- File length <= 500 lines (pylint, this one check only) ---
+# --- File length <= 500 lines + services/repositories built only in dependencies.py (pylint) ---
+[tool.pylint.main]
+init-hook = "import sys; sys.path.insert(0, 'tests')" # the plugin below; pylint runs from backend/
+load-plugins = ["pylint_construction"]                # tests/pylint_construction.py
+
 [tool.pylint."messages control"]
 disable = ["all"]
-enable = ["too-many-lines"]
+enable = ["too-many-lines", "construction-outside-provider"]
 
 [tool.pylint.format]
 max-module-lines = 500
+
+# --- No import cycles between features (import-linter) ---
+[tool.importlinter]
+root_package = "src"
+
+[[tool.importlinter.contracts]]
+name = "Features never import each other in a loop"
+type = "acyclic_siblings"
+ancestors = ["src.app.features"]
+depth = 0                        # features only; tach orders the layers inside a feature
 
 # --- Tests (pytest) ---
 [tool.pytest]

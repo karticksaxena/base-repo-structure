@@ -1,8 +1,10 @@
 """NestJS-style layout: every feature has the same layer folders, and nothing sits outside them.
 
 Import rules between the folders are checked by tach (tach.toml + each feature's
-tach.domain.toml). This test covers what tach can't see: files that import nothing, a feature whose
-layer rules were edited, missing tests, and code or comments that switch the structure checks off.
+tach.domain.toml), loops between features by import-linter, and who builds services and
+repositories by pylint (tests/pylint_construction.py). This test covers what those can't see: files
+that import nothing, a feature whose layer rules were edited, missing tests, and code or comments
+that switch the structure checks off.
 """
 
 import re
@@ -22,9 +24,19 @@ REQUIRED_PACKAGES = ("routers", "services", "repositories", "schemas", "constant
 APP_ENTRIES = ("__init__.py", "main.py", "app_module.py", "core", "common", "features")
 IGNORED = ("__pycache__",)
 # Code or comments that would get around a structure check: tach, Ruff's banned imports, import
-# cycles, and dynamic imports tach can't see
+# cycles, pylint (file length, construction outside dependencies.py), and dynamic imports tach
+# can't see
 BYPASSES = re.compile(
-    r"tach-ignore|noqa:[^#\n]*TID|reportImportCycles|\b__import__\(|import_module\("
+    "|".join(
+        (
+            r"tach-ignore",
+            r"noqa:[^#\n]*TID",
+            r"reportImportCycles",
+            r"pylint:\s*(?:disable|skip-file)",
+            r"\b__import__\(",
+            r"import_module\(",
+        )
+    )
 )
 FEATURES = sorted(p for p in FEATURES_DIR.iterdir() if p.is_dir() and p.name not in IGNORED)
 IDS = [p.name for p in FEATURES]
