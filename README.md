@@ -65,7 +65,7 @@ In VS Code: **Tasks: Run Task → `check: all`** runs every check except the aud
 ## Building an app from this template
 
 1. Follow [`SETUP.md`](SETUP.md) once: newest compatible versions, extensions, editor check.
-2. Go through the [ask-first list](SETUP.md#application-specific-setup--ask-the-user-first) — server, health checks, error contract, database, Redis, auth, background jobs, events, gRPC, Docker, observability — and add only what the app needs. The database, Redis and cache patterns are written out and verified in `SETUP.md`.
+2. Go through the [ask-first list](SETUP.md#application-specific-setup--ask-the-user-first) — server, health checks, error contract, database, Redis, auth, background jobs, events, gRPC, agent framework, frontend API types (Hey API), Docker, observability — and add only what the app needs. The database, Redis and cache patterns are written out and verified in `SETUP.md`.
 3. New feature: copy `features/items/` (layer rules included), rename its modules and classes, register its router in `main.py` and its provider in `app_module.py`, add `tests/features/<name>/` — steps in [`backend/CLAUDE.md`](backend/CLAUDE.md). Never edit one feature's `tach.domain.toml`.
 4. Choose libraries and optimizations from live research, not memory (`backend/CLAUDE.md` → Performance).
 

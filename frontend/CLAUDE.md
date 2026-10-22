@@ -10,7 +10,7 @@ Follow **`../SETUP.md`**. Lint rules live in `.oxlintrc.json`, format rules in `
 
 Next.js (App Router, `src/`, Turbopack) · React · Tailwind CSS · TypeScript · Vitest + React Testing Library · `pnpm` (never npm/yarn) · Node LTS (`.nvmrc`)
 
-Added only when a feature needs them (`../SETUP.md` → Frontend libraries by use case): **shadcn/ui** (all UI) · **Zod** (validation) · **CopilotKit** over AG-UI + A2UI (agent UI)
+Added only when a feature needs them (`../SETUP.md` → Frontend libraries by use case): **shadcn/ui** (all UI) · **Zod** (validation) · **CopilotKit** over AG-UI + A2UI (agent UI) · **Hey API** (types and SDK from the backend's OpenAPI — ask first, `../SETUP.md` → Application-specific setup)
 
 Always the latest stable, mutually compatible versions — never prereleases, never versions hardcoded in docs. The `@AGENTS.md` block above is maintained by `next dev` — keep it. For Next.js APIs, read `node_modules/next/dist/docs/` first; it may differ from training data.
 
@@ -24,6 +24,7 @@ Always the latest stable, mutually compatible versions — never prereleases, ne
 6. **`next/link` AND `next/image`** — never raw `<a>` for internal links or raw `<img>`
 7. **SHADCN/UI FOR ALL UI** (once shadcn is initialised) — never hand-roll a component shadcn provides; merge classes with `cn()`; theme through the CSS variables in `globals.css`
 8. **COPILOTKIT FOR AGENT UI** (once agents are added) — chat and agent interactions go through CopilotKit over AG-UI; never a custom streaming client; never render agent-supplied HTML
+9. **API TYPES FROM OPENAPI** (once Hey API is added) — import backend request/response types and calls from the generated `src/lib/api/`; never hand-write them or edit the generated files; regenerate after every backend schema change
 
 ## Structure
 
