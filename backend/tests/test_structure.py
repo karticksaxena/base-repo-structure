@@ -17,7 +17,9 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = BACKEND_DIR / "src"
 APP_DIR = SRC_DIR / "app"
 FEATURES_DIR = APP_DIR / "features"
-TESTS_DIR = BACKEND_DIR / "tests" / "features"
+TESTS_ROOT = BACKEND_DIR / "tests"
+TESTS_DIR = TESTS_ROOT / "features"
+THIS_FILE = Path(__file__).resolve()  # holds the bypass patterns, so the scan skips it
 TEMPLATE_RULES = FEATURES_DIR / "items" / "tach.domain.toml"  # the feature every new one copies
 REQUIRED_FILES = ("__init__.py", "dependencies.py", "tach.domain.toml")
 REQUIRED_PACKAGES = ("routers", "services", "repositories", "schemas", "constants", "utils")
@@ -106,9 +108,10 @@ def test_core_files_have_layer_rules() -> None:
 
 @pytest.mark.unit
 def test_nothing_gets_around_structure_checks() -> None:
+    files = sorted({*SRC_DIR.rglob("*.py"), *TESTS_ROOT.rglob("*.py")} - {THIS_FILE})
     found = [
         f"{path.relative_to(BACKEND_DIR)}:{number}"
-        for path in sorted(SRC_DIR.rglob("*.py"))
+        for path in files
         for number, line in enumerate(path.read_text().splitlines(), start=1)
         if BYPASSES.search(line)
     ]

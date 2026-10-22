@@ -16,7 +16,7 @@ PROVIDED = ("Service", "Repository")
 
 
 def called_name(call: nodes.Call) -> str | None:
-    # Matches by name, so an alias (`Repo = ItemRepository; Repo()`) slips through
+    # Matches by name: an alias, `type(x)()`, `cls()` in a classmethod or `getattr()` slips through
     if isinstance(call.func, nodes.Name):
         return call.func.name
     if isinstance(call.func, nodes.Attribute):

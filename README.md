@@ -16,7 +16,7 @@ Both apps start bare — add folders and libraries as features need them.
   - FastAPI only in routers, never in services, repositories or schemas
   - every feature has the same folders, identical layer rules and its own tests; no stray files; no comments or dynamic imports that switch a check off
 - **Code** — strict types (BasedPyright `recommended`, `tsc` strict); Pydantic v2 API only; schemas reject unknown fields; list endpoints return `Page[T]`; UUIDv7 ids; any warning fails the tests
-- **Not caught by a tool** — business logic inside routers (keep it in services; code review)
+- **Not caught by a tool** — business logic inside routers (keep it in services; code review); building a service or repository outside `dependencies.py` through an alias, `type(x)()`, a factory classmethod or `getattr` (the plugin matches names only)
 
 ## Quick start
 

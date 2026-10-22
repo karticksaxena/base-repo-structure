@@ -76,7 +76,9 @@ Edit `features/items/tach.domain.toml`, then copy it to every feature: `find src
 - `lint-imports` names only the two features (`.orders -> .items (1 import)`); find the import with `grep -rn 'features\.items' src/app/features/orders` and break the loop: move what both need to `common/`, or let only one feature call the other. Never add `ignore_imports` to `[tool.importlinter]`
 - `E9001 … built outside dependencies.py`: take the object as an `__init__` parameter and build it in the feature's `dependencies.py` Provider. pylint loads the plugin from `tests/`, so it runs from `backend/` (the editor and every check already do)
 - Trust `uv run tach check` over the editor after editing files: the Tach extension doesn't see disk changes until the file is reopened or **Tach: Restart Server** runs
-- Not caught by any tool, so keep it by hand: routers hold no business logic
+- Not caught by any tool, so keep it by hand:
+  - routers hold no business logic
+  - services and repositories are built only in `dependencies.py`, however the call is written — the pylint plugin matches `*Service(` / `*Repository(` by name, so an alias (`Repo = ItemRepository; Repo()`), `type(x)()`, `cls()` in a factory classmethod or `getattr(module, "ItemRepository")()` slips past it but still breaks the rule
 
 ## Rules
 
