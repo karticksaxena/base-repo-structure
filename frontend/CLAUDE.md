@@ -24,7 +24,7 @@ Always the latest stable, mutually compatible versions — never prereleases, ne
 6. **`next/link` AND `next/image`** — never raw `<a>` for internal links or raw `<img>`
 7. **SHADCN/UI FOR ALL UI** (once shadcn is initialised) — never hand-roll a component shadcn provides; merge classes with `cn()`; theme through the CSS variables in `globals.css`
 8. **COPILOTKIT FOR AGENT UI** (once agents are added) — chat and agent interactions go through CopilotKit over AG-UI; never a custom streaming client; never render agent-supplied HTML
-9. **API TYPES FROM OPENAPI** (once Hey API is added) — import backend request/response types and calls from the generated `src/lib/api/`; never hand-write them or edit the generated files; regenerate after every backend schema change
+9. **API TYPES FROM OPENAPI** (once Hey API is added, `../SETUP.md` → Hey API pattern) — backend types and calls come only from the generated `src/lib/api/`, wrapped in `src/lib/` (`throwOnError: true`); never hand-write them or edit the generated files — after a route or schema change, re-export `backend/openapi.json` and run `pnpm run openapi-ts`. The folder is excluded from oxlint and Prettier on purpose: never fix or format it by hand, and never remove the exclusion. Hey API is pinned to an exact version — upgrade it only on purpose (migration notes, regenerate, every check)
 
 ## Structure
 
