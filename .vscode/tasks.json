@@ -93,7 +93,7 @@
       ]
     },
     {
-      "label": "backend: pylint (file length, construction)",
+      "label": "backend: pylint (size, API, layout)",
       "type": "shell",
       "command": "uv run pylint src tests --score=n --msg-template='{path}:{line}:{column}: {msg_id} {msg}'",
       "options": {
@@ -302,7 +302,7 @@
         "backend: ruff",
         "backend: basedpyright",
         "backend: function length (flake8)",
-        "backend: pylint (file length, construction)",
+        "backend: pylint (size, API, layout)",
         "backend: structure (tach)",
         "backend: feature cycles (import-linter)",
         "backend: format",

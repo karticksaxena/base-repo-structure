@@ -7,7 +7,7 @@ Both apps start bare — add folders and libraries as features need them.
 ## What's enforced
 
 - **Size** — files ≤ 500 lines (every line counted), functions ≤ 100 code lines, lines ≤ 100 characters (backend; Prettier wraps the frontend at 100)
-- **Backend structure** (tach, import-linter, a pylint plugin and `tests/test_structure.py`; verified against 113 + 37 edge cases):
+- **Backend structure** (tach, import-linter and the pylint plugins in `backend/tests/`, so errors show in the editor; verified with 113 + 75 rule breaks):
   - imports go routers → services → repositories — nothing skipped, nothing upward, also inside functions and under `if TYPE_CHECKING:`
   - another feature only through its services (only `*Service` classes leave `services/`) or schemas
   - features never import each other in a loop (Nest rejects module cycles without `forwardRef()`)
@@ -34,7 +34,7 @@ Once per clone:
 git config core.hooksPath .githooks   # pre-commit hook: runs the checks below (except build and audits), blocks failing commits
 ```
 
-In VS Code: install the recommended extensions (Pylance, ESLint and the old `gauge.tach` not wanted), then **Python: Select Interpreter → `backend/.venv`** and, with a `.tsx` file open, **TypeScript: Select TypeScript Version → Use Workspace Version** (Next.js plugin). Problems then show Ruff, BasedPyright, Flake8 (function length), Pylint (file length, construction), tach (structure), oxc, TypeScript and Next.js rules — details in [`SETUP.md`](SETUP.md). After files change outside the editor, run **Tach: Restart Server** (tach doesn't watch the disk).
+In VS Code: install the recommended extensions (Pylance, ESLint and the old `gauge.tach` not wanted), then **Python: Select Interpreter → `backend/.venv`** and, with a `.tsx` file open, **TypeScript: Select TypeScript Version → Use Workspace Version** (Next.js plugin). Problems then show Ruff, BasedPyright, Flake8 (function length), Pylint (size, API rules, layout), tach (structure), oxc, TypeScript and Next.js rules — details in [`SETUP.md`](SETUP.md). After files change outside the editor, run **Tach: Restart Server** (tach doesn't watch the disk).
 
 ## Checks
 
@@ -80,7 +80,7 @@ backend/src/app/
   core/                 # config, logger (+ database, redis) — never imports a feature
   common/               # shared by 2+ features: schemas.py (BaseSchema, Page[T]) — never imports a feature
   features/<name>/      # routers/ · services/ · repositories/ · schemas/ · constants/ · utils/ · dependencies.py · tach.domain.toml
-backend/tests/          # test_structure.py, pylint_construction.py (pylint plugin) + features/<name>/ (required for every feature)
+backend/tests/          # pylint_*.py (pylint plugins that enforce the rules) + features/<name>/ (behaviour tests, required for every feature)
 frontend/src/app/       # Next.js App Router
 ```
 
