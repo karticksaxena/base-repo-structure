@@ -6,6 +6,7 @@ main.py or app_module.py, missing tests, and comments or calls that switch a che
 Checker.close() runs after the last file, so a layout problem shows up on every pylint run.
 """
 
+import hashlib
 import re
 import tokenize
 import tomllib
@@ -23,7 +24,9 @@ SRC_DIR = BACKEND_DIR / "src"
 APP_DIR = SRC_DIR / "app"
 FEATURES_DIR = APP_DIR / "features"
 TESTS_DIR = BACKEND_DIR / "tests" / "features"
-TEMPLATE_RULES = FEATURES_DIR / "items" / "tach.domain.toml"  # the feature every new one copies
+# Fingerprint of the layer rules every feature carries. Changing the rules means editing
+# features/items/tach.domain.toml, copying it to every feature and putting its new hash here.
+LAYER_RULES_SHA256 = "8b419fcfe020d849c0814291e665af42fb2ae02059a66e3474bf4801fbfca22b"
 REQUIRED_FILES = ("__init__.py", "dependencies.py", "tach.domain.toml")
 REQUIRED_PACKAGES = ("routers", "services", "repositories", "schemas", "constants", "utils")
 APP_ENTRIES = ("__init__.py", "main.py", "app_module.py", "core", "common", "features")
@@ -50,8 +53,8 @@ def feature_problems(feature: Path) -> Iterator[str]:
     if extra:
         yield f"{where} has entries outside the layout: {', '.join(extra)}"
     rules = feature / "tach.domain.toml"
-    if rules.is_file() and rules.read_text() != TEMPLATE_RULES.read_text():
-        yield f"{where}tach.domain.toml differs from features/items/tach.domain.toml"
+    if rules.is_file() and hashlib.sha256(rules.read_bytes()).hexdigest() != LAYER_RULES_SHA256:
+        yield f"{where}tach.domain.toml differs from the layer rules pinned in pylint_structure.py"
     if not list((TESTS_DIR / feature.name).glob("test_*.py")):
         yield f"tests/features/{feature.name}/ has no test_*.py files"
     module = f"src.app.features.{feature.name}"

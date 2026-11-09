@@ -93,6 +93,7 @@ ban-relative-imports = "all"
 "fastapi.responses.JSONResponse".msg = "Return the schema: Pydantic serializes it faster."
 "starlette.responses.JSONResponse".msg = "Return the schema: Pydantic serializes it faster."
 "fastapi.encoders.jsonable_encoder".msg = "Return the schema: Pydantic serializes it faster."
+"functools.partial".msg = "Builds objects outside dishka. Take the object from dishka instead."
 "importlib.import_module".msg = "Dynamic imports bypass the layer checks (tach). Import directly."
 
 [tool.ruff.lint.mccabe]
@@ -124,6 +125,8 @@ enable = [
   "redundant-response-model",
   "logic-in-route",
   "percent-log-args",
+  "provided-class-as-value",
+  "route-calls-beyond-service",
   "route-path",
   "route-return-type",
   "route-name",

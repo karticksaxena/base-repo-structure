@@ -24,8 +24,10 @@ LOGIC = (
     nodes.BoolOp, nodes.Compare, nodes.ListComp, nodes.SetComp, nodes.DictComp, nodes.GeneratorExp,
 )  # fmt: skip
 MAX_ROUTE_STATEMENTS = 3  # parse, call a service, return
+CLASS_VALUE_OK = frozenset({"isinstance", "issubclass", "cast", "Depends", "Security"})
 DYNAMIC_BUILDERS = {"type", "getattr"}
 PERCENT_PLACEHOLDER = re.compile(r"%[sdrif]")
+SERVICE_TYPE = re.compile(r"\w*Service\b")
 
 
 def name_of(expr: nodes.NodeNG) -> str | None:
@@ -42,6 +44,28 @@ def real_name(expr: nodes.NodeNG) -> str | None:
     if isinstance(inferred, nodes.ClassDef | nodes.FunctionDef):
         return inferred.name
     return name_of(expr)
+
+
+def provided_class(expr: nodes.NodeNG) -> str | None:
+    """The service or repository class this name or attribute points to, aliases followed."""
+    if not isinstance(expr, nodes.Name | nodes.Attribute):
+        return None
+    inferred = safe_infer(expr)
+    if isinstance(inferred, nodes.ClassDef) and inferred.name.endswith(PROVIDED):
+        return inferred.name
+    return None
+
+
+def service_parameters(node: nodes.FunctionDef) -> set[str]:
+    """Parameters annotated with a *Service class, e.g. `service: FromDishka[ItemService]`."""
+    args = node.args
+    names = [*(args.args or []), *args.kwonlyargs]
+    annotations = [*args.annotations, *args.kwonlyargs_annotations]
+    return {
+        arg.name
+        for arg, annotation in zip(names, annotations, strict=False)
+        if annotation is not None and SERVICE_TYPE.search(annotation.as_string())
+    }
 
 
 def depends_target(call: nodes.Call) -> nodes.NodeNG | None:
@@ -122,6 +146,16 @@ class ConstructionChecker(BaseChecker):
             "percent-log-args",
             "Use logger.info('x {}', value).",
         ),
+        "E9008": (
+            "%s passed around as a value; dishka builds it, ask for an instance in __init__",
+            "provided-class-as-value",
+            "A class handed to a call can be built anywhere, skipping dishka.",
+        ),
+        "E9009": (
+            "route %s; one service call, nothing else (functions, a second service)",
+            "route-calls-beyond-service",
+            "Routes call a single service method and return its result.",
+        ),
     }
 
     def visit_call(self, node: nodes.Call) -> None:
@@ -135,12 +169,26 @@ class ConstructionChecker(BaseChecker):
             self.add_message("percent-log-args", node=node)
         if module.endswith(".dependencies"):
             return
+        self._check_class_values(node, name)
         if isinstance(node.func, nodes.Call) and name_of(node.func.func) in DYNAMIC_BUILDERS:
             self.add_message("construction-outside-provider", node=node, args=("type(x)/getattr",))
         elif name in {"Depends", "Security"}:
             self._check_depends(node)
         elif name and name.endswith(PROVIDED):
             self.add_message("construction-outside-provider", node=node, args=(name,))
+        elif isinstance(node.func, nodes.Attribute) and node.func.attrname == "__new__":
+            built = provided_class(node.func.expr)
+            if built:
+                self.add_message("construction-outside-provider", node=node, args=(built,))
+
+    def _check_class_values(self, node: nodes.Call, name: str | None) -> None:
+        if name in CLASS_VALUE_OK:
+            return
+        values = [*node.args, *(kw.value for kw in node.keywords or ())]
+        for value in values:
+            held = provided_class(value)
+            if held:
+                self.add_message("provided-class-as-value", node=node, args=(held,))
 
     def _check_depends(self, node: nodes.Call) -> None:
         target = depends_target(node)
@@ -166,6 +214,28 @@ class ConstructionChecker(BaseChecker):
         body_has_logic = any(next(s.nodes_of_class(LOGIC), None) is not None for s in node.body)
         if body_has_logic or len(node.body) > MAX_ROUTE_STATEMENTS:
             self.add_message("logic-in-route", node=node)
+        self._check_route_calls(node)
+
+    def _check_route_calls(self, node: nodes.FunctionDef) -> None:
+        services = service_parameters(node)
+        service_calls = 0
+        for statement in node.body:
+            for call in statement.nodes_of_class(nodes.Call):
+                func = call.func
+                if isinstance(func, nodes.Attribute) and name_of(func.expr) in services:
+                    service_calls += 1
+                    continue
+                inferred = safe_infer(func)
+                if inferred is not None and not isinstance(inferred, nodes.ClassDef):
+                    self.add_message(
+                        "route-calls-beyond-service", node=call, args=(f"calls {name_of(func)}()",)
+                    )
+        if service_calls > 1:
+            self.add_message(
+                "route-calls-beyond-service",
+                node=node,
+                args=(f"makes {service_calls} service calls",),
+            )
 
     def visit_asyncfunctiondef(self, node: nodes.AsyncFunctionDef) -> None:
         self.visit_functiondef(node)
