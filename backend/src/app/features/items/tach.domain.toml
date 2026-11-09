@@ -1,4 +1,4 @@
-# Layer rules for this feature — the same in every feature (tests/test_structure.py checks it).
+# Layer rules for this feature — the same in every feature (tests/pylint_structure.py checks it).
 # Paths are relative to this feature; "//" paths are absolute. Each path is a folder
 # (e.g. "services" covers services/*.py).
 # NestJS-style: routers -> services -> repositories; another feature only through its

@@ -21,7 +21,7 @@
     "fatal": "Error",
     "refactor": "Hint",
     "warning": "Warning",
-    "info": "Information"
+    "info": "Error"
   },
 
   "js/ts.tsdk.path": "frontend/node_modules/typescript/lib",

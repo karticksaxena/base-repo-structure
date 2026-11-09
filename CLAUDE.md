@@ -24,18 +24,18 @@ uv run ruff check src tests          # lint, banned imports
 uv run ruff format --check src tests # format
 uv run basedpyright                  # types, import cycles
 uv run flake8 src tests              # functions <= 100 code lines
-uv run pylint src tests              # files <= 500 lines; services/repositories built only in dependencies.py
+uv run pylint src tests              # files <= 500 lines; construction, API rules, feature layout (tests/pylint_*.py)
 uv run tach check                    # NestJS-style layers (backend/CLAUDE.md)
 uv run tach check-external           # declared dependencies; FastAPI only in routers
 uv run lint-imports                  # no import loops between features
-uv run pytest -q                     # tests + feature layout (tests/test_structure.py)
+uv run pytest -q                     # behaviour tests; rules are enforced by the linters above
 
 # frontend/
 pnpm run lint && pnpm run typecheck && pnpm run format:check && pnpm run test
 ```
 
 - Done only when every check passes; never commit with `--no-verify` (the pre-commit hook runs these same checks)
-- A tach or structure-test failure means the code is in the wrong place — move it; never change the rules to make it pass (`backend/CLAUDE.md` → When a check fails)
+- A tach or pylint structure failure means the code is in the wrong place — move it; never change the rules to make it pass (`backend/CLAUDE.md` → When a check fails)
 
 ## Grounded research
 

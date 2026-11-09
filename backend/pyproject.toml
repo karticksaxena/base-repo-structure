@@ -37,6 +37,7 @@ failOnWarnings = true
 include = ["src", "tests"]
 venvPath = "."                   # editor and CLI resolve imports from the same venv
 venv = ".venv"
+extraPaths = ["tests"]           # the pylint plugins import each other
 
 # --- Lint + format (Ruff) ---
 [tool.ruff]
@@ -73,18 +74,25 @@ select = [
   "C90",   # cyclomatic complexity (max-complexity below)
   "PGH",   # no blanket `# noqa` / `# type: ignore` — name the rule
 ]
-unfixable = ["F841"] # never auto-delete unused variables
+logger-objects = ["src.app.core.logger.logger"] # so G004 (f-string) and G002 (%) see loguru
+ignore = ["PLE1205"]                            # expects stdlib % placeholders; loguru uses {}
+unfixable = ["F841"]                            # never auto-delete unused variables
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]                 # assert is how pytest checks
 "**/__init__.py" = ["TID252"]         # relative imports allowed only in __init__.py
 "src/app/core/logger.py" = ["TID251"]
+"src/app/common/schemas.py" = ["TID251"] # BaseSchema inherits BaseModel
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "loguru".msg = "Import `logger` from `src.app.core.logger`."
+"pydantic.BaseModel".msg = "Inherit BaseSchema from `src.app.common.schemas`."
+"fastapi.responses.JSONResponse".msg = "Return the schema: Pydantic serializes it faster."
+"starlette.responses.JSONResponse".msg = "Return the schema: Pydantic serializes it faster."
+"fastapi.encoders.jsonable_encoder".msg = "Return the schema: Pydantic serializes it faster."
 "importlib.import_module".msg = "Dynamic imports bypass the layer checks (tach). Import directly."
 
 [tool.ruff.lint.mccabe]
@@ -99,14 +107,42 @@ select = ["MFL"]                   # only flake8-max-function-length; Ruff does 
 max-function-length = 100
 exclude = [".venv", "__pycache__"]
 
-# --- File length <= 500 lines + services/repositories built only in dependencies.py (pylint) ---
+# --- File length <= 500 lines + the plugins in tests/: construction, API rules, layout (pylint) ---
 [tool.pylint.main]
-init-hook = "import sys; sys.path.insert(0, 'tests')" # the plugin below; pylint runs from backend/
-load-plugins = ["pylint_construction"]                # tests/pylint_construction.py
+init-hook = "import sys; sys.path.insert(0, 'tests')" # the plugins below; pylint runs from backend/
+load-plugins = ["pylint_construction", "pylint_api", "pylint_structure"]
+fail-on = ["locally-disabled", "file-ignored"] # a check switched off in the code fails the run
 
 [tool.pylint."messages control"]
 disable = ["all"]
-enable = ["too-many-lines", "construction-outside-provider", "construction-through-depends"]
+enable = [
+  "too-many-lines",
+  "construction-outside-provider",
+  "construction-through-depends",
+  "depends-with-target",
+  "field-without-description",
+  "redundant-response-model",
+  "logic-in-route",
+  "percent-log-args",
+  "route-path",
+  "route-return-type",
+  "route-name",
+  "route-name-repeated",
+  "route-status",
+  "route-parameter",
+  "route-paging",
+  "router-without-dishka",
+  "route-not-decorated",
+  "include-prefix",
+  "schema-field-undocumented",
+  "schema-not-strict",
+  "setting-not-secretstr",
+  "test-without-mark",
+  "structure-layout",
+  "structure-bypass",
+  "locally-disabled",
+  "file-ignored",
+]
 
 [tool.pylint.format]
 max-module-lines = 500
@@ -126,7 +162,7 @@ depth = 0                        # features only; tach orders the layers inside 
 addopts = [
   "--strict-markers",
   "--import-mode=importlib",
-  "--continue-on-collection-errors", # an import error in one test file must not hide the structure test
+  "--continue-on-collection-errors", # an import error in one test file must not hide the others
   "-p",
   "no:tach",
 ] # tach's pytest plugin is not used
