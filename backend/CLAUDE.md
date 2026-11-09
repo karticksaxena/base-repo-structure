@@ -12,6 +12,13 @@ Added only when a feature needs them (`../SETUP.md` → Libraries by use case): 
 
 Always the latest stable, mutually compatible versions — never prereleases, never versions hardcoded in docs.
 
+## Local containers (Colima, not Docker Desktop)
+
+- Docker runs on **Colima** (a Docker Engine in a light VM): run `colima start` before any `docker` / `docker compose` command, `colima stop` when done. "Cannot connect to the Docker daemon" means Colima is stopped — check `colima status`
+- The `docker` and `docker compose` commands and compose files work unchanged; published ports are on `localhost`, containers reach the host at `host.docker.internal`
+- Bind-mount paths under `$HOME` only — elsewhere the container starts with an empty mount and no error (add the path under `mounts` in `~/.colima/default/colima.yaml`, then `colima restart`); an x86-only image needs `--platform linux/amd64` (runs emulated, slower)
+- Never install or suggest Docker Desktop; the VM defaults to 2 CPUs / 2 GiB — raise with `colima start --cpu 4 --memory 8` only when a workload needs it
+
 ## NestJS-style structure (enforced — the linters fail on violations)
 
 ```
